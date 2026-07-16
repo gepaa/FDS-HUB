@@ -10,10 +10,9 @@ interface PanelCardProps {
   /** Right side of the header (e.g. a StatusPill). */
   aside?: React.ReactNode;
   className?: string;
-  glow?: "green" | "amber" | "none";
 }
 
-/** Dashboard widget card: header with drill-in, glass body. */
+/** Dashboard widget card: header with drill-in. */
 export function PanelCard({
   href,
   icon: Icon,
@@ -21,10 +20,9 @@ export function PanelCard({
   aside,
   children,
   className,
-  glow = "none",
 }: PanelCardProps) {
   return (
-    <GlassPanel glow={glow} className={className}>
+    <GlassPanel className={className}>
       <div className="flex h-full flex-col p-5">
         <div className="mb-3 flex items-center gap-2.5">
           <span className="flex h-8 w-8 items-center justify-center rounded-control bg-[var(--accent-soft)] text-accent-bright">

@@ -16,7 +16,7 @@ interface DrawerProps {
   widthClass?: string;
 }
 
-/** Right-hand glass drawer with blur overlay and spring slide-in. */
+/** Right-hand drawer with blur overlay and spring slide-in. */
 export function Drawer({
   open,
   onClose,
@@ -63,7 +63,7 @@ export function Drawer({
             role="dialog"
             aria-modal="true"
             tabIndex={-1}
-            className={`glass-strong absolute top-3 right-3 bottom-3 flex flex-col rounded-panel outline-none ${widthClass}`}
+            className={`surface-raised absolute top-3 right-3 bottom-3 flex flex-col rounded-panel outline-none ${widthClass}`}
             initial={{ x: "104%" }}
             animate={{ x: 0 }}
             exit={{ x: "104%" }}

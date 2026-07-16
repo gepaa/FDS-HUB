@@ -13,7 +13,7 @@ interface ChipProps {
   className?: string;
 }
 
-/** Filter chip — rounded, glassy, accent-tinted when active. */
+/** Filter chip — rounded, quiet, accent-tinted when active. */
 export function Chip({ label, active, dot, count, onClick, className }: ChipProps) {
   const { sound } = useSound();
   return (
@@ -28,7 +28,7 @@ export function Chip({ label, active, dot, count, onClick, className }: ChipProp
         "press inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium",
         active
           ? "border-[var(--accent)] bg-[var(--accent-soft)] text-ink"
-          : "glass-soft text-muted hover:text-ink hover:border-[var(--hairline-strong)]",
+          : "surface-muted text-muted hover:text-ink hover:border-[var(--hairline-strong)]",
         className,
       )}
     >

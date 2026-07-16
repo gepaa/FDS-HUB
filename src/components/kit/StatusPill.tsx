@@ -11,7 +11,7 @@ interface StatusPillProps {
 }
 
 const dotColor: Record<Status, string> = {
-  connected: "var(--accent-bright)",
+  connected: "var(--green)",
   disconnected: "var(--muted)",
   error: "var(--red)",
   planned: "var(--amber)",
@@ -22,7 +22,7 @@ export function StatusPill({ status, label, pulse, className }: StatusPillProps)
   return (
     <span
       className={cn(
-        "glass-soft inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-muted",
+        "surface-muted inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-muted",
         status === "connected" && "text-ink",
         className,
       )}

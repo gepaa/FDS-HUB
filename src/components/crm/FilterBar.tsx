@@ -5,7 +5,6 @@ import {
   CLUSTERS,
   OWNERS,
   RANKS,
-  stagesFor,
   type RecordType,
 } from "@/lib/domain";
 import { Chip } from "@/components/kit/Chip";
@@ -23,6 +22,8 @@ export interface CrmFilters {
 
 interface FilterBarProps {
   recordType: RecordType;
+  /** Stages offered in the table's stage filter. */
+  stages: readonly { id: string; label: string }[];
   filters: CrmFilters;
   onChange: (next: CrmFilters) => void;
   view: "board" | "table";
@@ -33,6 +34,7 @@ interface FilterBarProps {
 
 export function FilterBar({
   recordType,
+  stages,
   filters,
   onChange,
   view,
@@ -102,7 +104,7 @@ export function FilterBar({
               aria-label="Filter by stage"
             >
               <option value="">All stages</option>
-              {stagesFor(recordType).map((s) => (
+              {stages.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.label}
                 </option>

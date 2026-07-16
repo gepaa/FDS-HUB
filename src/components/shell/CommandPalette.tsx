@@ -133,7 +133,7 @@ export function CommandPalette({
             role="dialog"
             aria-modal="true"
             aria-label="Command palette"
-            className="glass-strong relative h-fit w-full max-w-lg overflow-hidden rounded-panel"
+            className="surface-raised relative h-fit w-full max-w-lg overflow-hidden rounded-panel"
             initial={{ opacity: 0, scale: 0.97, y: -8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -6 }}

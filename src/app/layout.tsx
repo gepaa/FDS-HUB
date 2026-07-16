@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "@/components/shell/Providers";
-import { AmbientBackground } from "@/components/shell/AmbientBackground";
 import { AppShell } from "@/components/shell/AppShell";
 import { getIntegrations } from "@/lib/integrations";
 
@@ -11,11 +10,14 @@ export const metadata: Metadata = {
     template: "%s · FDS Command Hub",
   },
   description:
-    "Operator console for Farmer Direct Supply — CRM, accounting, Shopify, tasks, comms, and calendar in one glass surface.",
+    "Operator console for Farmer Direct Supply — CRM, accounting, Shopify, tasks, comms, and calendar in one place.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0A0E14",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf9f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#262624" },
+  ],
 };
 
 export default function RootLayout({
@@ -27,7 +29,7 @@ export default function RootLayout({
   // DATABASE_URL would 500 on every query. Show setup steps instead.
   if (process.env.VERCEL && (process.env.DATABASE_URL ?? "").trim() === "") {
     return (
-      <html lang="en" className="dark h-full antialiased">
+      <html lang="en" className="h-full antialiased">
         <body className="min-h-full">
           <main
             style={{
@@ -35,8 +37,8 @@ export default function RootLayout({
               display: "grid",
               placeItems: "center",
               fontFamily: "system-ui, sans-serif",
-              background: "#0a0e14",
-              color: "#e6ebe8",
+              background: "#faf9f5",
+              color: "#292824",
               padding: "2rem",
             }}
           >
@@ -66,10 +68,9 @@ export default function RootLayout({
   }));
 
   return (
-    <html lang="en" className="dark h-full antialiased" suppressHydrationWarning>
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full">
         <Providers>
-          <AmbientBackground />
           <AppShell integrations={integrations}>{children}</AppShell>
         </Providers>
       </body>

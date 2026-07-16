@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  Archive,
+  BadgeCheck,
   Clock,
   Download,
   Medal,
@@ -9,10 +11,16 @@ import {
   Upload,
   Users,
   Waypoints,
+  XCircle,
 } from "lucide-react";
 import {
+  ACTIVE_SUPPLIER_STAGES,
+  CLOSED_SUPPLIER_STAGE_SET,
+  isClosedSupplier,
   needsFollowUp,
   RECORD_TYPES,
+  stagesFor,
+  CLOSED_SUPPLIER_STAGES,
   type InteractionType,
   type RecordDTO,
   type RecordType,
@@ -20,6 +28,7 @@ import {
 } from "@/lib/domain";
 import type { ParsedSupplier } from "@/lib/csv";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/components/kit/Toast";
 import { Button } from "@/components/kit/Button";
 import { StatTile } from "@/components/kit/StatTile";
@@ -27,6 +36,7 @@ import { Modal } from "@/components/kit/Modal";
 import { SegmentedControl } from "@/components/kit/SegmentedControl";
 import { Board } from "@/components/crm/Board";
 import { TableView } from "@/components/crm/TableView";
+import { ClosedView } from "@/components/crm/ClosedView";
 import { FilterBar, type CrmFilters } from "@/components/crm/FilterBar";
 import {
   RecordDrawer,
@@ -49,6 +59,8 @@ const defaultFilters: CrmFilters = {
   followUpOnly: false,
 };
 
+type Scope = "pipeline" | "closed";
+
 export function CrmWorkspace({
   initial,
   initialRecordId,
@@ -57,6 +69,7 @@ export function CrmWorkspace({
   const { toast } = useToast();
   const [records, setRecords] = useState<RecordDTO[]>(initial);
   const [recordType, setRecordType] = useState<RecordType>("supplier");
+  const [scope, setScope] = useState<Scope>("pipeline");
   const [view, setView] = useState<"board" | "table">("board");
   const [filters, setFilters] = useState<CrmFilters>(defaultFilters);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -69,7 +82,10 @@ export function CrmWorkspace({
     if (initialRecordId) {
       setSelectedId(initialRecordId);
       const r = initial.find((x) => x.id === initialRecordId);
-      if (r) setRecordType(r.type);
+      if (r) {
+        setRecordType(r.type);
+        if (isClosedSupplier(r)) setScope("closed");
+      }
     }
   }, [initialRecordId, initial]);
   useEffect(() => {
@@ -90,28 +106,56 @@ export function CrmWorkspace({
     [records, recordType],
   );
 
-  const clusterCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const r of ofType) counts[r.cluster] = (counts[r.cluster] ?? 0) + 1;
-    return counts;
-  }, [ofType]);
+  const isSupplier = recordType === "supplier";
 
-  const followUpCount = useMemo(
-    () => ofType.filter(needsFollowUp).length,
-    [ofType],
+  /** Suppliers whose deal is decided — they live in the Closed section. */
+  const closedRecords = useMemo(
+    () => (isSupplier ? ofType.filter((r) => CLOSED_SUPPLIER_STAGE_SET.has(r.status)) : []),
+    [ofType, isSupplier],
   );
 
-  const goldCount = ofType.filter((r) => r.rank === "Gold").length;
-  const silverCount = ofType.filter((r) => r.rank === "Silver").length;
-  const bronzeCount = ofType.filter((r) => r.rank === "Bronze").length;
-  const claudeOwned = ofType.filter((r) => r.owner === "claude").length;
-  const inMotion = ofType.filter(
+  /** What the pipeline board/table works with. */
+  const pipelineRecords = useMemo(
+    () =>
+      isSupplier
+        ? ofType.filter((r) => !CLOSED_SUPPLIER_STAGE_SET.has(r.status))
+        : ofType,
+    [ofType, isSupplier],
+  );
+
+  const clusterCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const r of pipelineRecords)
+      counts[r.cluster] = (counts[r.cluster] ?? 0) + 1;
+    return counts;
+  }, [pipelineRecords]);
+
+  const followUpCount = useMemo(
+    () => pipelineRecords.filter(needsFollowUp).length,
+    [pipelineRecords],
+  );
+
+  const goldCount = pipelineRecords.filter((r) => r.rank === "Gold").length;
+  const silverCount = pipelineRecords.filter((r) => r.rank === "Silver").length;
+  const bronzeCount = pipelineRecords.filter((r) => r.rank === "Bronze").length;
+  const claudeOwned = pipelineRecords.filter((r) => r.owner === "claude").length;
+  const inMotion = pipelineRecords.filter(
     (r) => !["SOURCED", "QUALIFIED", "NEW", "DECLINED", "LOST"].includes(r.status),
+  ).length;
+
+  const authorizedCount = closedRecords.filter(
+    (r) => r.status === "AUTHORIZED",
+  ).length;
+  const declinedCount = closedRecords.filter(
+    (r) => r.status === "DECLINED",
+  ).length;
+  const goldDealers = closedRecords.filter(
+    (r) => r.status === "AUTHORIZED" && r.rank === "Gold",
   ).length;
 
   const filtered = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
-    return ofType.filter((r) => {
+    return pipelineRecords.filter((r) => {
       if (
         q &&
         ![
@@ -141,17 +185,31 @@ export function CrmWorkspace({
       if (filters.followUpOnly && !needsFollowUp(r)) return false;
       return true;
     });
-  }, [ofType, filters, view]);
+  }, [pipelineRecords, filters, view]);
+
+  const pipelineStages = isSupplier
+    ? ACTIVE_SUPPLIER_STAGES
+    : stagesFor(recordType);
 
   // ---------- mutations ----------
   const moveStage = async (id: string, status: StageId) => {
     const before = records;
+    const record = records.find((r) => r.id === id);
     setRecords((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status } : r)),
     );
     try {
       const dto = await api.updateRecord(id, { status });
       replace(dto);
+      // Closing a supplier moves it off the board — say where it went.
+      if (isClosedSupplier(dto) && record && !isClosedSupplier(record)) {
+        const stage = CLOSED_SUPPLIER_STAGES.find((s) => s.id === dto.status);
+        toast({
+          title: `${dto.name} moved to Closed`,
+          description: stage ? stage.label : undefined,
+          tone: "success",
+        });
+      }
     } catch (e) {
       setRecords(before);
       toast({
@@ -242,14 +300,14 @@ export function CrmWorkspace({
   const leadCount = records.filter((r) => r.type === "lead").length;
   const supplierCount = records.filter((r) => r.type === "supplier").length;
 
+  const showClosed = isSupplier && scope === "closed";
+
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">
-            CRM
-          </h1>
-          <p className="mt-1 text-sm text-muted">
+          <h1 className="font-display text-3xl text-ink">CRM</h1>
+          <p className="mt-1.5 text-sm text-muted">
             {supplierCount} suppliers · {leadCount} leads ·{" "}
             {followUpCount > 0
               ? `${followUpCount} need follow-up`
@@ -263,10 +321,11 @@ export function CrmWorkspace({
             value={recordType}
             onChange={(id) => {
               setRecordType(id as RecordType);
+              setScope("pipeline");
               setFilters(defaultFilters);
             }}
           />
-          {recordType === "supplier" ? (
+          {isSupplier ? (
             <>
               <Button
                 variant="ghost"
@@ -302,66 +361,150 @@ export function CrmWorkspace({
         </div>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <StatTile
-          label={recordType === "lead" ? "Total leads" : "Total suppliers"}
-          value={ofType.length}
-          icon={Users}
-          tone="accent"
-        />
-        {recordType === "supplier" ? (
-          <StatTile
-            label="Gold rank"
-            value={goldCount}
-            sub={`${silverCount} Silver · ${bronzeCount} Bronze`}
-            icon={Medal}
-          />
+      {isSupplier ? (
+        <nav
+          aria-label="Supplier scope"
+          className="flex items-center gap-6 border-b border-hairline"
+        >
+          {(
+            [
+              { id: "pipeline", label: "Pipeline", count: pipelineRecords.length },
+              { id: "closed", label: "Closed", count: closedRecords.length },
+            ] as const
+          ).map((tab) => {
+            const active = scope === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setScope(tab.id)}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "press -mb-px inline-flex items-center gap-2 border-b-2 px-1 pb-2.5 text-sm font-medium",
+                  active
+                    ? "border-[var(--accent)] text-ink"
+                    : "border-transparent text-muted hover:text-ink",
+                )}
+              >
+                {tab.label}
+                <span
+                  className={cn(
+                    "num rounded-full px-1.5 py-0.5 text-[11px]",
+                    active
+                      ? "bg-[var(--accent-soft)] text-accent-bright"
+                      : "bg-[var(--panel-soft)] text-muted",
+                  )}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        {showClosed ? (
+          <>
+            <StatTile
+              label="Closed total"
+              value={closedRecords.length}
+              sub="deals decided"
+              icon={Archive}
+            />
+            <StatTile
+              label="Authorized dealers"
+              value={authorizedCount}
+              sub="closed-won"
+              icon={BadgeCheck}
+              tone="green"
+            />
+            <StatTile
+              label="Gold dealers"
+              value={goldDealers}
+              sub="among authorized"
+              icon={Medal}
+              tone={goldDealers > 0 ? "accent" : "default"}
+            />
+            <StatTile
+              label="Declined"
+              value={declinedCount}
+              sub="closed-lost"
+              icon={XCircle}
+              tone={declinedCount > 0 ? "danger" : "default"}
+            />
+          </>
         ) : (
-          <StatTile
-            label="Claude-owned"
-            value={claudeOwned}
-            sub="next move is Claude's"
-            icon={Medal}
-          />
+          <>
+            <StatTile
+              label={recordType === "lead" ? "Total leads" : "In pipeline"}
+              value={pipelineRecords.length}
+              icon={Users}
+              tone="accent"
+            />
+            {isSupplier ? (
+              <StatTile
+                label="Gold rank"
+                value={goldCount}
+                sub={`${silverCount} Silver · ${bronzeCount} Bronze`}
+                icon={Medal}
+              />
+            ) : (
+              <StatTile
+                label="Claude-owned"
+                value={claudeOwned}
+                sub="next move is Claude's"
+                icon={Medal}
+              />
+            )}
+            <StatTile
+              label="In motion"
+              value={inMotion}
+              sub="contacted or further"
+              icon={Waypoints}
+            />
+            <StatTile
+              label="Needs follow-up"
+              value={followUpCount}
+              sub="due today or overdue"
+              icon={Clock}
+              tone={followUpCount > 0 ? "amber" : "default"}
+            />
+          </>
         )}
-        <StatTile
-          label="In motion"
-          value={inMotion}
-          sub="contacted or further"
-          icon={Waypoints}
-        />
-        <StatTile
-          label="Needs follow-up"
-          value={followUpCount}
-          sub="due today or overdue"
-          icon={Clock}
-          tone={followUpCount > 0 ? "amber" : "default"}
-        />
       </div>
 
-      <FilterBar
-        recordType={recordType}
-        filters={filters}
-        onChange={setFilters}
-        view={view}
-        onViewChange={setView}
-        clusterCounts={clusterCounts}
-        followUpCount={followUpCount}
-      />
-
-      {view === "board" ? (
-        <Board
-          records={filtered}
-          recordType={recordType}
-          onMoveStage={moveStage}
-          onSelect={setSelectedId}
-        />
+      {showClosed ? (
+        <ClosedView records={closedRecords} onSelect={setSelectedId} />
       ) : (
-        <TableView
-          records={filtered}
-          recordType={recordType}
-          onSelect={setSelectedId}
-        />
+        <>
+          <FilterBar
+            recordType={recordType}
+            stages={pipelineStages}
+            filters={filters}
+            onChange={setFilters}
+            view={view}
+            onViewChange={setView}
+            clusterCounts={clusterCounts}
+            followUpCount={followUpCount}
+          />
+
+          {view === "board" ? (
+            <Board
+              records={filtered}
+              stages={pipelineStages}
+              closeTargets={isSupplier ? CLOSED_SUPPLIER_STAGES : undefined}
+              onMoveStage={moveStage}
+              onSelect={setSelectedId}
+            />
+          ) : (
+            <TableView
+              records={filtered}
+              recordType={recordType}
+              onSelect={setSelectedId}
+            />
+          )}
+        </>
       )}
 
       <RecordDrawer

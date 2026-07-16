@@ -37,7 +37,7 @@ export default function IntegrationsPage() {
           <Plug size={20} aria-hidden />
         </span>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          <h1 className="font-display text-3xl text-ink">
             Integrations
           </h1>
           <p className="text-sm text-muted">
@@ -57,7 +57,7 @@ export default function IntegrationsPage() {
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         {integrations.map((i) =>
           i.connected ? (
-            <GlassPanel key={i.id} glow="green" className="p-8">
+            <GlassPanel key={i.id} className="p-8">
               <div className="flex items-start justify-between gap-4">
                 <span className="flex h-12 w-12 items-center justify-center rounded-card bg-[var(--accent-soft)] text-accent-bright">
                   {(() => {

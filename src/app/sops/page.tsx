@@ -12,9 +12,9 @@ export default function SopsPage() {
   const groups = ["Operational SOPs", "Core context"] as const;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">
+        <h1 className="font-display text-3xl text-ink">
           SOP Library
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">

@@ -20,7 +20,7 @@ interface SegmentedControlProps {
   ariaLabel: string;
 }
 
-/** iOS-style segmented control with a sliding glass thumb. */
+/** iOS-style segmented control with a sliding thumb. */
 export function SegmentedControl({
   segments,
   value,
@@ -34,7 +34,7 @@ export function SegmentedControl({
       role="tablist"
       aria-label={ariaLabel}
       className={cn(
-        "glass-soft inline-flex items-center gap-0.5 rounded-control p-0.5",
+        "surface-muted inline-flex items-center gap-0.5 rounded-control p-0.5",
         className,
       )}
     >

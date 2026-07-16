@@ -11,24 +11,26 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import {
-  stagesFor,
-  type RecordDTO,
-  type RecordType,
-  type StageId,
-} from "@/lib/domain";
+import { type RecordDTO, type StageId } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import { useSound } from "@/hooks/useSound";
 import { RecordCard } from "@/components/crm/RecordCard";
 
+type Stage = { id: string; label: string; color: string };
+
 interface BoardProps {
   records: RecordDTO[];
-  recordType: RecordType;
+  /** Columns to render, in ladder order. */
+  stages: readonly Stage[];
+  /**
+   * Optional extra drop targets rendered as a compact "close" rail at
+   * the end of the board (e.g. Authorized dealer / Declined). Records
+   * dropped here leave the pipeline.
+   */
+  closeTargets?: readonly Stage[];
   onMoveStage: (id: string, stage: StageId) => void;
   onSelect: (id: string) => void;
 }
-
-type Stage = { id: string; label: string; color: string };
 
 function Column({
   stage,
@@ -45,13 +47,13 @@ function Column({
       aria-label={`${stage.label} — ${records.length} records`}
       className="flex w-64 shrink-0 flex-col"
     >
-      <header className="flex items-center gap-2 px-1.5 pb-2">
+      <header className="flex items-center gap-2 px-1.5 pb-2.5">
         <span
           aria-hidden
           className="h-2 w-2 rounded-full"
           style={{ background: stage.color }}
         />
-        <h3 className="text-xs font-semibold tracking-wide text-ink uppercase">
+        <h3 className="text-[11px] font-semibold tracking-wider text-ink uppercase">
           {stage.label}
         </h3>
         <span className="num text-xs text-muted">{records.length}</span>
@@ -59,7 +61,7 @@ function Column({
       <div
         ref={setNodeRef}
         className={cn(
-          "glass-soft flex min-h-32 flex-1 flex-col gap-2 overflow-y-auto rounded-card p-2 transition-all duration-200",
+          "surface-muted flex min-h-32 flex-1 flex-col gap-2 overflow-y-auto rounded-card p-2 transition-all duration-200",
           isOver && "border-[var(--accent)] bg-[var(--accent-soft)]",
         )}
       >
@@ -76,11 +78,36 @@ function Column({
   );
 }
 
+function CloseSlot({ stage }: { stage: Stage }) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage.id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex flex-1 flex-col items-center justify-center gap-1.5 rounded-card border border-dashed border-[var(--hairline-strong)] p-3 text-center transition-colors duration-200",
+        isOver && "border-solid border-[var(--accent)] bg-[var(--accent-soft)]",
+      )}
+    >
+      <span
+        aria-hidden
+        className="h-2 w-2 rounded-full"
+        style={{ background: stage.color }}
+      />
+      <p className="text-xs font-medium text-ink">{stage.label}</p>
+    </div>
+  );
+}
+
 /** Kanban view — drag cards across the pipeline for the active record type. */
-export function Board({ records, recordType, onMoveStage, onSelect }: BoardProps) {
+export function Board({
+  records,
+  stages,
+  closeTargets,
+  onMoveStage,
+  onSelect,
+}: BoardProps) {
   const { sound } = useSound();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const stages = stagesFor(recordType);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -98,6 +125,11 @@ export function Board({ records, recordType, onMoveStage, onSelect }: BoardProps
     ? (records.find((r) => r.id === activeId) ?? null)
     : null;
 
+  const validTargets = useMemo(
+    () => new Set([...stages, ...(closeTargets ?? [])].map((s) => s.id)),
+    [stages, closeTargets],
+  );
+
   const onDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
     sound("pop");
@@ -110,7 +142,7 @@ export function Board({ records, recordType, onMoveStage, onSelect }: BoardProps
     const record = records.find((r) => r.id === e.active.id);
     if (!record) return;
     const target = overId as StageId;
-    if (stages.some((st) => st.id === target) && record.status !== target) {
+    if (validTargets.has(target) && record.status !== target) {
       sound("drop");
       onMoveStage(record.id, target);
     }
@@ -135,6 +167,23 @@ export function Board({ records, recordType, onMoveStage, onSelect }: BoardProps
             onSelect={onSelect}
           />
         ))}
+        {closeTargets?.length ? (
+          <section
+            aria-label="Close a supplier"
+            className="flex w-44 shrink-0 flex-col"
+          >
+            <header className="flex items-center gap-2 px-1.5 pb-2.5">
+              <h3 className="text-[11px] font-semibold tracking-wider text-muted uppercase">
+                Close →
+              </h3>
+            </header>
+            <div className="flex flex-1 flex-col gap-2">
+              {closeTargets.map((stage) => (
+                <CloseSlot key={stage.id} stage={stage} />
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
       <DragOverlay dropAnimation={{ duration: 220 }}>
         {active ? (

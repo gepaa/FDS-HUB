@@ -8,13 +8,14 @@ interface StatTileProps {
   /** Small context line under the value, e.g. "12 due today". */
   sub?: string;
   icon?: LucideIcon;
-  tone?: "default" | "accent" | "amber" | "danger";
+  tone?: "default" | "accent" | "green" | "amber" | "danger";
   className?: string;
 }
 
 const toneStyles: Record<string, { fg: string; bg: string }> = {
   default: { fg: "var(--muted)", bg: "var(--panel-soft)" },
   accent: { fg: "var(--accent-bright)", bg: "var(--accent-soft)" },
+  green: { fg: "var(--green)", bg: "var(--green-soft)" },
   amber: { fg: "var(--amber)", bg: "var(--amber-soft)" },
   danger: { fg: "var(--red)", bg: "var(--red-soft)" },
 };
@@ -36,10 +37,10 @@ export function StatTile({
     <GlassPanel className={cn("p-5", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium tracking-wide text-muted uppercase">
+          <p className="truncate text-[11px] font-medium tracking-wider text-muted uppercase">
             {label}
           </p>
-          <p className="num mt-1.5 text-3xl font-semibold tracking-tight text-ink">
+          <p className="num mt-2 text-3xl font-semibold tracking-tight text-ink">
             {value}
           </p>
           {sub ? <p className="mt-1 text-xs text-muted">{sub}</p> : null}

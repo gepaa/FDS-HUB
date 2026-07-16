@@ -15,7 +15,7 @@ interface ModalProps {
   widthClass?: string;
 }
 
-/** Centered glass dialog with scale + fade entrance. */
+/** Centered dialog with scale + fade entrance. */
 export function Modal({
   open,
   onClose,
@@ -56,7 +56,7 @@ export function Modal({
             role="dialog"
             aria-modal="true"
             tabIndex={-1}
-            className={`glass-strong relative w-full rounded-panel outline-none ${widthClass}`}
+            className={`surface-raised relative w-full rounded-panel outline-none ${widthClass}`}
             initial={{ opacity: 0, scale: 0.95, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 6 }}

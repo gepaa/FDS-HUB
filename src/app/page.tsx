@@ -71,12 +71,12 @@ export default async function DashboardPage() {
   });
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <header>
         <p className="text-xs font-medium tracking-widest text-muted uppercase">
           {today}
         </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-ink">
+        <h1 className="font-display mt-1 text-3xl text-ink">
           Operations HQ
         </h1>
         <p className="mt-1.5 max-w-xl text-sm text-muted">
@@ -106,7 +106,7 @@ export default async function DashboardPage() {
         </GlassPanel>
       )}
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatTile
           label="Suppliers in pipeline"
           value={suppliers.length}
@@ -136,13 +136,12 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <PanelCard
           href="/crm"
           icon={Users}
           title="Supplier pipeline"
           className="lg:col-span-2"
-          glow="green"
         >
           <PipelineBar counts={stageCounts} />
         </PanelCard>

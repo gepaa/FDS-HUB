@@ -53,17 +53,13 @@ function RailLink({
         "press relative flex items-center gap-3 rounded-control px-3 py-2 text-sm font-medium",
         active
           ? "text-ink"
-          : "text-muted hover:text-ink hover:bg-[var(--panel-soft)]",
+          : "text-muted hover:bg-[var(--panel-soft)] hover:text-ink",
       )}
     >
       {active && (
         <motion.span
           layoutId="rail-active"
-          className="absolute inset-0 rounded-control"
-          style={{
-            background: "var(--rail-active)",
-            border: "1px solid var(--accent-soft)",
-          }}
+          className="absolute inset-0 rounded-control bg-[var(--rail-active)]"
           transition={{ type: "spring", stiffness: 480, damping: 40 }}
         />
       )}
@@ -74,7 +70,7 @@ function RailLink({
       />
       <span className="relative z-10">{item.label}</span>
       {item.approvalsBadge && badge > 0 ? (
-        <span className="relative z-10 ml-auto rounded-full bg-[#c2410c] px-1.5 py-0.5 text-[10px] font-bold text-white">
+        <span className="relative z-10 ml-auto rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent-fg)]">
           {badge}
         </span>
       ) : null}
@@ -83,9 +79,9 @@ function RailLink({
 }
 
 /**
- * Persistent left rail (desktop) / bottom bar (mobile).
- * The five HQ surfaces first, parked stages collapsed below, utilities
- * pinned to the bottom. Active item carries a sliding glass highlight.
+ * Persistent left sidebar (desktop) / bottom bar (mobile).
+ * The five HQ surfaces first, parked stages below, utilities pinned
+ * to the bottom. Active item carries a soft sliding highlight.
  */
 export function LeftRail() {
   const pathname = usePathname();
@@ -101,25 +97,19 @@ export function LeftRail() {
 
   return (
     <>
-      {/* desktop rail */}
+      {/* desktop sidebar */}
       <nav
         aria-label="Primary"
-        className="fixed top-3 bottom-3 left-3 z-40 hidden w-56 flex-col md:flex"
+        className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-hairline bg-[var(--bg1)] md:flex"
       >
-        <div className="glass flex h-full flex-col rounded-panel p-3">
+        <div className="flex h-full flex-col px-3 pt-5 pb-4">
           <Link
             href="/"
-            className="mb-4 flex items-center gap-2.5 px-2 pt-1.5"
+            className="mb-6 flex items-center gap-2.5 px-2"
             onClick={() => sound("tap")}
           >
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-[10px] text-white shadow-[0_4px_14px_var(--accent-soft)]"
-              style={{
-                background:
-                  "linear-gradient(160deg, var(--accent-bright), var(--accent))",
-              }}
-            >
-              <Sprout size={19} aria-hidden />
+            <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[var(--accent)] text-[var(--accent-fg)]">
+              <Sprout size={17} aria-hidden />
             </span>
             <span className="leading-tight">
               <span className="block text-sm font-semibold tracking-tight text-ink">
@@ -131,7 +121,7 @@ export function LeftRail() {
             </span>
           </Link>
 
-          <ul className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
+          <ul className="flex flex-1 flex-col gap-1 overflow-y-auto">
             {hq.map((item) => (
               <li key={item.href}>
                 <RailLink
@@ -142,7 +132,7 @@ export function LeftRail() {
                 />
               </li>
             ))}
-            <li className="mt-4 mb-1 px-3 text-[10px] font-semibold tracking-widest text-muted uppercase">
+            <li className="mt-6 mb-1.5 px-3 text-[10px] font-semibold tracking-widest text-muted uppercase">
               Parked
             </li>
             {parked.map((item) => (
@@ -155,7 +145,7 @@ export function LeftRail() {
                 />
               </li>
             ))}
-            <li className="mt-auto" aria-hidden />
+            <li className="mt-auto pt-6" aria-hidden />
             {utility.map((item) => (
               <li key={item.href}>
                 <RailLink
@@ -173,7 +163,7 @@ export function LeftRail() {
       {/* mobile bottom bar — the HQ surfaces only */}
       <nav
         aria-label="Primary"
-        className="glass-strong fixed right-3 bottom-3 left-3 z-40 flex items-center gap-1 overflow-x-auto rounded-panel px-2 py-1.5 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 overflow-x-auto border-t border-hairline bg-[var(--panel)] px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:hidden"
       >
         {[...hq, ...utility].map((item) => {
           const active = isActive(item.href);
@@ -197,7 +187,7 @@ export function LeftRail() {
               />
               {item.label}
               {item.approvalsBadge && pending > 0 ? (
-                <span className="absolute top-0.5 right-1.5 rounded-full bg-[#c2410c] px-1 text-[9px] font-bold text-white">
+                <span className="absolute top-0.5 right-1.5 rounded-full bg-[var(--accent)] px-1 text-[9px] font-bold text-[var(--accent-fg)]">
                   {pending}
                 </span>
               ) : null}

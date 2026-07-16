@@ -39,7 +39,7 @@ const icons = {
 };
 
 const iconColor = {
-  success: "var(--accent-bright)",
+  success: "var(--green)",
   error: "var(--red)",
   info: "var(--muted)",
 };
@@ -78,7 +78,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 6, scale: 0.97 }}
                 transition={{ duration: 0.24, ease: [0.2, 0.8, 0.3, 1] }}
-                className="glass-strong pointer-events-auto flex items-start gap-3 rounded-card px-4 py-3"
+                className="surface-raised pointer-events-auto flex items-start gap-3 rounded-card px-4 py-3"
               >
                 <Icon
                   size={17}

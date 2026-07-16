@@ -40,7 +40,7 @@ export function RecordCard({ record, onSelect, overlay }: RecordCardProps) {
             }
       }
       className={cn(
-        "glass press cursor-grab rounded-card p-3 text-left select-none",
+        "surface press cursor-grab rounded-card p-3 text-left select-none",
         "hover:-translate-y-0.5 hover:border-[var(--hairline-strong)] hover:bg-[var(--panel-strong)]",
         isDragging && "opacity-30",
         overlay &&

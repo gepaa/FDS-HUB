@@ -62,7 +62,7 @@ export function ChatFeed({ initial }: { initial: MessageDTO[] }) {
   };
 
   return (
-    <div className="glass flex h-[min(70vh,640px)] flex-col rounded-panel p-4">
+    <div className="surface flex h-[min(70vh,640px)] flex-col rounded-panel p-4">
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
         {initial.length === 0 ? (
           <p className="m-auto max-w-sm text-center text-sm text-muted">
@@ -80,7 +80,7 @@ export function ChatFeed({ initial }: { initial: MessageDTO[] }) {
                 "max-w-[82%] rounded-2xl px-4 py-2.5 text-sm",
                 mine
                   ? "self-end rounded-br-md bg-[var(--accent)] text-white"
-                  : "glass-soft self-start rounded-bl-md text-ink",
+                  : "surface-muted self-start rounded-bl-md text-ink",
               )}
             >
               <p

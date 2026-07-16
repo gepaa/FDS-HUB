@@ -149,7 +149,7 @@ export function TaskBoard({ initial }: { initial: TaskDTO[] }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="glass flex items-center gap-2 rounded-card p-3">
+      <div className="surface flex items-center gap-2 rounded-card p-3">
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
