@@ -88,12 +88,12 @@ export default async function ShopifyPage() {
           requiredEnv={shopify?.requiredEnv ?? []}
           setupUrl={shopify?.setupUrl}
           checklist={[
-            "SHOPIFY_STORE_DOMAIN is already set (gthv54-e1.myshopify.com) — only the token is missing",
-            "Shopify admin → Settings → Apps and sales channels → Develop apps",
-            "Create an app named “FDS Command Hub”",
-            "Grant Admin API scopes: read_products, read_orders, read_customers",
-            "Install the app, reveal the Admin API access token (shpat_…)",
-            "Paste it as SHOPIFY_ADMIN_TOKEN in .env (local) and Vercel → Environment Variables (production)",
+            "SHOPIFY_STORE_DOMAIN is already set (gthv54-e1.myshopify.com) — only the app credentials are missing",
+            "Dev Dashboard (dev.shopify.com) → your “FDS Command Hub” app → create a version with scopes: read_products, read_orders, read_customers → Release",
+            "Install the app on the FDS store",
+            "App → Settings → copy the Client ID and Client secret",
+            "Paste them as SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET in .env (local) and Vercel → Environment Variables (production)",
+            "The hub exchanges them for 24-hour Admin tokens automatically — nothing else to rotate",
           ]}
         />
       ) : (
