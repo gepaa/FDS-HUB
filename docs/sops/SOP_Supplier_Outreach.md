@@ -98,3 +98,9 @@ The scripts here are placeholders. To make this SOP match how FDS actually wins 
 **QA before anything queues:** prerequisites met (§1), correct outreach order (Bronze/Silver before Gold), demo-product timing respected, no MAP-failing supplier being pursued, tone professional and on-brand, and every send still passing through your approval at notch 0.
 
 *Feeds into: **SOP — Quote & Call-Prep** (for supplier calls) and **SOP — Product Import** (once a supplier is Authorized Dealer).*
+
+---
+
+## Workspace addendum (2026-07-16)
+
+Per §7, the scaffolding above is superseded: **all outreach wording now comes from [`Outreach_Email_Template_Bank.md`](Outreach_Email_Template_Bank.md)** (identity: Ben Lockwood / Farmer Direct Supply — never "Farmer Supply Direct"; cadence Day 0 / 3 / 8–10 / 17–20; attachment security policy §9; sending checklist §11). The pitch deck remains to be dropped in for Template 9.

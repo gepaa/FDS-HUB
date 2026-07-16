@@ -47,3 +47,6 @@ dev.db-journal
 next-env.d.ts
 
 /src/generated/prisma
+
+# signed business documents (local only — never commit; see docs/FDS_HQ_Decisions.md)
+/assets/business/

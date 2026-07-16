@@ -1,0 +1,180 @@
+// PRODUCTION (PostgreSQL) schema — the models MUST stay identical to
+// prisma/schema.prisma (the SQLite dev schema); only the provider and
+// the relative output path differ. prisma.config.ts picks this file
+// whenever DATABASE_URL is not a file: URL. When you change one schema,
+// change both, and regenerate the postgres migration if DDL changed.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Stage 0 health check — proves the migration pipeline works.
+model HealthCheck {
+  id        Int      @id @default(autoincrement())
+  note      String   @default("ok")
+  checkedAt DateTime @default(now())
+}
+
+// ---------------- CRM: the unified Record spine ----------------
+//
+// One table, two record types (docs/FDS_CRM_Data_Model.md + Decisions):
+//   type = "supplier" — outbound dealer recruiting
+//   type = "lead"     — inbound buyers
+//
+// Status ladders live in src/lib/domain.ts (kept as String for
+// cross-database portability):
+//   supplier: SOURCED | QUALIFIED | CONTACTED | REPLIED |
+//             IN_CONVERSATION | CALL_SCHEDULED | NEGOTIATING |
+//             AUTHORIZED | ON_HOLD | DECLINED
+//   lead:     NEW | CONTACTED | ENGAGED | QUOTE_REQUESTED |
+//             QUOTE_SENT | CALL_NEGOTIATION | WON | NURTURE | LOST
+//
+// NOTE: the DB-level default on `status` is the legacy value and is
+// deliberately NOT changed (changing a SQLite column default forces a
+// destructive table rebuild). The app layer always sets status
+// explicitly on create (src/lib/validation.ts).
+model CrmRecord {
+  id       String  @id @default(cuid())
+  recordId String? @unique // human ID: FDS-SUP-#### / FDS-LEAD-####
+  type     String  @default("supplier") // supplier | lead
+  name     String
+  company  String?
+
+  // Supplier sheet fields (kept additive — real FDS data lives here)
+  niche        String?
+  cluster      String  @default("Other")
+  bestSeller   String?
+  rank         String? // Gold | Silver | Bronze | null (unranked)
+  websiteUrl   String?
+  dealerAppUrl String?
+  mainContact  String?
+  email        String?
+  phone        String?
+
+  status String @default("NOT_CONTACTED") @map("stage") // see NOTE above
+
+  // Spine (CRM Data Model §2)
+  owner           String  @default("unassigned") // claude | you | unassigned
+  priority        String? // hot | warm | cold
+  contextSummary  String?
+  tags            String  @default("[]") // JSON array of "dimension:value" strings
+  linkedThread    String? // Gmail thread ID(s)
+  linkedShopifyId String? // Shopify customer/order ID
+
+  // Supplier-only (§4, MVP subset)
+  mapPolicy           String?
+  dropship            Boolean?
+  freightModel        String?
+  leadTime            String?
+  warranty            String?
+  productCategories   String  @default("[]") // JSON array; maps to Collection Map
+  dealerProgram       String? // dropship | stocking | none | unknown
+  mediaPermission     String? // granted | requested | none
+  authorizationStatus String? // none | pending | authorized
+
+  // Lead-only (§5, MVP subset)
+  productInterest String?
+  intent          String? // browsing | comparing | ready-to-buy
+  quoteAmount     Float?
+
+  lastContactDate DateTime?
+  nextAction      String?
+  nextActionDate  DateTime?
+  notes           String?
+  source          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  interactions Interaction[]
+  approvals    Approval[]
+
+  @@index([status])
+  @@index([cluster])
+  @@index([nextActionDate])
+  @@index([type])
+  @@index([owner])
+  @@map("Supplier")
+}
+
+// The activity_log of the spec (CRM Data Model §2) — every email,
+// call, note, and system event on a record, with who logged it.
+model Interaction {
+  id       String    @id @default(cuid())
+  recordId String    @map("supplierId")
+  record   CrmRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  date     DateTime  @default(now())
+  type     String // email | call | form | note | status | system
+  body     String
+  actor    String    @default("you") // you | claude | system
+
+  @@index([recordId, date])
+}
+
+// ---------------- The gate (Blueprint §3 Layer 4) ----------------
+//
+// Every outbound / irreversible action the agent wants to take lands
+// here as a draft and waits for one-tap human approval. Nothing fires
+// autonomously (D7, autonomy notch 0).
+model Approval {
+  id           String     @id @default(cuid())
+  kind         String // outbound_email | publish_product | price_quote | discount | other
+  title        String
+  recordId     String?
+  record       CrmRecord? @relation(fields: [recordId], references: [id], onDelete: SetNull)
+  draftSubject String?
+  draftBody    String
+  reasoning    String? // why Claude queued this (full context, shown on the card)
+  status       String     @default("pending") // pending | approved | rejected | snoozed | executed
+  decisionNote String?
+  snoozedUntil DateTime?
+  createdBy    String     @default("claude")
+  decidedAt    DateTime?
+  executedAt   DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([status, createdAt])
+}
+
+// ---------------- Task queue (Blueprint §3 Layer 5) ----------------
+//
+// Work assigned in plain language. The PM reads `queued`, plans, runs,
+// and writes results back. `suggested` = the PM proposing work for
+// Pablo to approve into the queue.
+model HqTask {
+  id          String    @id @default(cuid())
+  title       String
+  detail      String?
+  status      String    @default("queued") // suggested | queued | running | done | cancelled
+  assignee    String    @default("claude") // claude | you
+  origin      String    @default("you") // you | claude
+  result      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([status, createdAt])
+}
+
+// ---------------- Agent messages (the thin Chat surface) ----------------
+//
+// Morning briefs, pings, and run logs from the PM land here; Pablo's
+// replies are stored too (the PM reads them on its next run). True
+// two-way chat stays in Claude itself for now (Decisions log).
+model AgentMessage {
+  id        String   @id @default(cuid())
+  role      String   @default("claude") // claude | you
+  kind      String   @default("log") // brief | ping | log | chat
+  title     String?
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+  @@index([createdAt])
+}
