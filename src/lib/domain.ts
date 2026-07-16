@@ -78,6 +78,31 @@ export const TERMINAL_STAGES = new Set<string>([
   "LOST",
 ]);
 
+// ---------------- Closed suppliers ----------------
+
+/** Supplier stages where the deal is decided — the closed book. */
+export const CLOSED_SUPPLIER_STAGE_SET = new Set<string>([
+  "AUTHORIZED",
+  "DECLINED",
+]);
+
+/** Decided suppliers (won + lost), in ladder order. */
+export const CLOSED_SUPPLIER_STAGES = SUPPLIER_STAGES.filter((s) =>
+  CLOSED_SUPPLIER_STAGE_SET.has(s.id),
+);
+
+/** Stages still being worked — what the pipeline board shows. */
+export const ACTIVE_SUPPLIER_STAGES = SUPPLIER_STAGES.filter(
+  (s) => !CLOSED_SUPPLIER_STAGE_SET.has(s.id),
+);
+
+export function isClosedSupplier(r: {
+  type: RecordType;
+  status: string;
+}): boolean {
+  return r.type === "supplier" && CLOSED_SUPPLIER_STAGE_SET.has(r.status);
+}
+
 /** CSV status text → supplier stage id (import mapping; includes the
  *  legacy hub/sheet names per the D3 migration table). */
 export const CSV_STATUS_TO_STAGE: Record<string, SupplierStageId> = {

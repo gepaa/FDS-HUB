@@ -3,63 +3,65 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ================================================================
-   FDS Command Hub — liquid glass design tokens
-   Palette: agricultural green accent on deep slate, amber warnings,
-   red destructive. Dark is the default theme.
+   FDS Operations HQ — design tokens
+   Warm, quiet, structured. Ivory paper surfaces in light, warm
+   charcoal in dark; one terracotta accent, green reserved for
+   success/live states. Solid surfaces, hairline borders, soft
+   shadows — no blur, no ornament.
    ================================================================ */
 
 :root {
-  /* light theme */
-  --bg0: #eef2f7;
-  --bg1: #dde6f0;
-  --panel: rgba(255, 255, 255, 0.72);
-  --panel-strong: rgba(255, 255, 255, 0.87);
-  --panel-soft: rgba(255, 255, 255, 0.42);
-  --hairline: rgba(13, 24, 36, 0.1);
-  --hairline-strong: rgba(13, 24, 36, 0.18);
-  --text: #131c26;
-  --muted: #566274;
-  --accent: #1f8a4c;
-  --accent-bright: #23a058;
-  --accent-soft: rgba(31, 138, 76, 0.12);
-  --amber: #9a6c10;
-  --amber-soft: rgba(169, 118, 20, 0.14);
-  --red: #cc3138;
-  --red-soft: rgba(210, 56, 64, 0.12);
-  --glass-highlight: rgba(255, 255, 255, 0.9);
-  --glass-shadow: 0 8px 32px rgba(15, 30, 45, 0.12);
-  --orb-green: rgba(46, 158, 91, 0.2);
-  --orb-amber: rgba(217, 154, 43, 0.17);
-  --orb-blue: rgba(59, 130, 160, 0.14);
-  --ring: rgba(31, 138, 76, 0.5);
-  --rail-active: rgba(31, 138, 76, 0.1);
-  --scrollbar: rgba(13, 24, 36, 0.18);
+  /* light theme (default) */
+  --bg0: #faf9f5;
+  --bg1: #f2f0e9;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --panel-soft: rgba(82, 74, 60, 0.055);
+  --hairline: rgba(63, 58, 48, 0.12);
+  --hairline-strong: rgba(63, 58, 48, 0.24);
+  --text: #292824;
+  --muted: #6f6a5f;
+  --accent: #b8512d;
+  --accent-bright: #aa4a26;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(184, 81, 45, 0.1);
+  --green: #1f7a45;
+  --green-soft: rgba(31, 122, 69, 0.11);
+  --amber: #966208;
+  --amber-soft: rgba(150, 98, 8, 0.12);
+  --red: #c53030;
+  --red-soft: rgba(197, 48, 48, 0.1);
+  --shadow-card: 0 1px 2px rgba(40, 35, 25, 0.04), 0 2px 10px rgba(40, 35, 25, 0.05);
+  --shadow-raised: 0 4px 12px rgba(40, 35, 25, 0.08), 0 16px 48px rgba(40, 35, 25, 0.12);
+  --ring: rgba(201, 100, 66, 0.45);
+  --rail-active: rgba(196, 93, 60, 0.09);
+  --scrollbar: rgba(63, 58, 48, 0.2);
 }
 
 .dark {
-  --bg0: #0a0e14;
-  --bg1: #111722;
-  --panel: rgba(255, 255, 255, 0.06);
-  --panel-strong: rgba(255, 255, 255, 0.1);
-  --panel-soft: rgba(255, 255, 255, 0.03);
-  --hairline: rgba(255, 255, 255, 0.12);
+  --bg0: #262624;
+  --bg1: #21201e;
+  --panel: #2f2e2b;
+  --panel-strong: #383733;
+  --panel-soft: rgba(255, 255, 255, 0.05);
+  --hairline: rgba(255, 255, 255, 0.1);
   --hairline-strong: rgba(255, 255, 255, 0.22);
-  --text: #e6eaf0;
-  --muted: #8a94a6;
-  --accent: #2e9e5b;
-  --accent-bright: #3dbe72;
-  --accent-soft: rgba(46, 158, 91, 0.16);
-  --amber: #d99a2b;
-  --amber-soft: rgba(217, 154, 43, 0.14);
+  --text: #edeae4;
+  --muted: #a5a196;
+  --accent: #d97757;
+  --accent-bright: #e29273;
+  --accent-fg: #201812;
+  --accent-soft: rgba(217, 119, 87, 0.14);
+  --green: #46b479;
+  --green-soft: rgba(70, 180, 121, 0.14);
+  --amber: #d9a03d;
+  --amber-soft: rgba(217, 160, 61, 0.13);
   --red: #e5484d;
   --red-soft: rgba(229, 72, 77, 0.14);
-  --glass-highlight: rgba(255, 255, 255, 0.09);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
-  --orb-green: rgba(46, 158, 91, 0.14);
-  --orb-amber: rgba(217, 154, 43, 0.11);
-  --orb-blue: rgba(64, 130, 170, 0.11);
-  --ring: rgba(61, 190, 114, 0.55);
-  --rail-active: rgba(61, 190, 114, 0.12);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 2px 10px rgba(0, 0, 0, 0.16);
+  --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.3), 0 16px 48px rgba(0, 0, 0, 0.4);
+  --ring: rgba(226, 146, 115, 0.5);
+  --rail-active: rgba(217, 119, 87, 0.12);
   --scrollbar: rgba(255, 255, 255, 0.14);
 }
 
@@ -72,23 +74,27 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-bright: var(--accent-bright);
+  --color-green: var(--green);
   --color-amber: var(--amber);
   --color-danger: var(--red);
   --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, system-ui,
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, system-ui,
     "Segoe UI", Roboto, sans-serif;
-  --radius-panel: 1.25rem;
-  --radius-card: 0.875rem;
-  --radius-control: 0.625rem;
+  --font-display:
+    ui-serif, "Iowan Old Style", "Palatino", Georgia, "Times New Roman",
+    serif;
+  --radius-panel: 1rem;
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
 }
 
 /* ---------------- base ---------------- */
 
 html {
-  color-scheme: dark;
-}
-html:not(.dark) {
   color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
 }
 
 body {
@@ -111,7 +117,7 @@ body {
   border-radius: 4px;
 }
 
-/* thin translucent scrollbars */
+/* thin quiet scrollbars */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar) transparent;
@@ -128,29 +134,33 @@ body {
   background: transparent;
 }
 
-/* ---------------- glass surfaces ---------------- */
+/* ---------------- display type ----------------
+   Page titles wear the serif; everything else stays sans. */
 
-.glass {
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+
+/* ---------------- surfaces ---------------- */
+
+/* Card surface: solid panel, hairline border, soft shadow. */
+.surface {
   background: var(--panel);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--hairline);
-  box-shadow:
-    var(--glass-shadow),
-    inset 0 1px 0 var(--glass-highlight);
+  box-shadow: var(--shadow-card);
 }
 
-.glass-strong {
+/* Raised surface for layered UI: drawers, dialogs, popovers. */
+.surface-raised {
   background: var(--panel-strong);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--hairline);
-  box-shadow:
-    var(--glass-shadow),
-    inset 0 1px 0 var(--glass-highlight);
+  box-shadow: var(--shadow-raised);
 }
 
-.glass-soft {
+/* Recessed fill: inputs, wells, hover states. No shadow. */
+.surface-muted {
   background: var(--panel-soft);
   border: 1px solid var(--hairline);
 }
@@ -158,13 +168,14 @@ body {
 /* press affordance: subtle scale on active */
 .press {
   transition:
-    transform 200ms cubic-bezier(0.2, 0.8, 0.3, 1),
-    box-shadow 200ms ease-out,
-    border-color 200ms ease-out,
-    background-color 200ms ease-out;
+    transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1),
+    box-shadow 180ms ease-out,
+    border-color 180ms ease-out,
+    background-color 180ms ease-out,
+    color 180ms ease-out;
 }
 .press:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }
 
 /* ---------------- motion ---------------- */
@@ -172,7 +183,7 @@ body {
 @keyframes fade-rise {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -180,51 +191,10 @@ body {
   }
 }
 .fade-rise {
-  animation: fade-rise 320ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  animation: fade-rise 280ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
 
-/* ambient orbs — slow underwater drift */
-@keyframes orb-a {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(6vw, -8vh) scale(1.12);
-  }
-  66% {
-    transform: translate(-4vw, 6vh) scale(0.94);
-  }
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-}
-@keyframes orb-b {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  40% {
-    transform: translate(-7vw, 5vh) scale(1.08);
-  }
-  75% {
-    transform: translate(5vw, -4vh) scale(0.92);
-  }
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-}
-@keyframes orb-c {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  50% {
-    transform: translate(4vw, 7vh) scale(1.15);
-  }
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-}
-
-/* glass shimmer for skeletons */
+/* skeleton shimmer */
 @keyframes shimmer {
   0% {
     background-position: -450px 0;
@@ -236,42 +206,19 @@ body {
 .shimmer {
   background: linear-gradient(
     90deg,
-    var(--panel) 0%,
-    var(--panel-strong) 40%,
-    var(--panel) 80%
+    var(--panel-soft) 0%,
+    var(--hairline) 40%,
+    var(--panel-soft) 80%
   );
   background-size: 450px 100%;
   animation: shimmer 1.6s linear infinite;
-}
-
-/* click ripple — a droplet hitting the glass */
-@keyframes ripple {
-  from {
-    transform: scale(0);
-    opacity: 0.35;
-  }
-  to {
-    transform: scale(2.6);
-    opacity: 0;
-  }
-}
-.ripple-ink {
-  position: absolute;
-  border-radius: 9999px;
-  pointer-events: none;
-  background: radial-gradient(
-    circle,
-    var(--glass-highlight) 0%,
-    transparent 70%
-  );
-  animation: ripple 650ms ease-out forwards;
 }
 
 /* soft pulse for live/status dots */
 @keyframes status-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 var(--accent-soft);
+    box-shadow: 0 0 0 0 var(--green-soft);
   }
   50% {
     box-shadow: 0 0 0 5px transparent;
@@ -294,14 +241,14 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* Rendered markdown (SOP Library) — matches the glass surfaces */
+/* Rendered markdown (SOP Library) */
 .prose-doc {
   color: var(--ink);
   font-size: 14px;
   line-height: 1.65;
   max-width: 76ch;
 }
-.prose-doc h1 { font-size: 1.5rem; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 0.75rem; }
+.prose-doc h1 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 0.75rem; }
 .prose-doc h2 { font-size: 1.15rem; font-weight: 650; margin: 1.75rem 0 0.5rem; }
 .prose-doc h3 { font-size: 1rem; font-weight: 600; margin: 1.4rem 0 0.4rem; }
 .prose-doc p, .prose-doc ul, .prose-doc ol { margin: 0.6rem 0; }

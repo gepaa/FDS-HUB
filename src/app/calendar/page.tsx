@@ -9,7 +9,7 @@ export default function CalendarPage() {
     <PanelPlaceholder
       icon={CalendarDays}
       title="Calendar"
-      description="Google Calendar, embedded in the glass."
+      description="Google Calendar, embedded in the hub."
       stage={5}
       features={[
         "Embedded calendar view with read + create",

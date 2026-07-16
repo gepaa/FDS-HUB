@@ -35,7 +35,7 @@ export function PanelPlaceholder({
           <Icon size={20} aria-hidden />
         </span>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          <h1 className="font-display text-3xl text-ink">
             {title}
           </h1>
           <p className="text-sm text-muted">{description}</p>
@@ -47,7 +47,7 @@ export function PanelPlaceholder({
         />
       </header>
 
-      <GlassPanel glow="green" className="p-6">
+      <GlassPanel className="p-6">
         <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
           What ships in Stage {stage}
         </h2>

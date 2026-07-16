@@ -22,11 +22,11 @@ export function getIntegrations(): IntegrationStatus[] {
       id: "database",
       name: "Postgres Database",
       description:
-        "Primary data store. Running on local SQLite until a Postgres connection string is provided.",
+        "Primary data store — Supabase Postgres in production, local SQLite for dev.",
       stage: 0,
       connected: !env.DATABASE_URL.startsWith("file:"),
       requiredEnv: ["DATABASE_URL"],
-      setupUrl: "https://neon.tech",
+      setupUrl: "https://supabase.com/dashboard",
     },
     {
       id: "shopify",
@@ -34,9 +34,17 @@ export function getIntegrations(): IntegrationStatus[] {
       description:
         "Live store analytics, orders, and customer management via the Admin GraphQL API.",
       stage: 3,
-      connected: Boolean(env.SHOPIFY_STORE_DOMAIN && env.SHOPIFY_ADMIN_TOKEN),
-      requiredEnv: ["SHOPIFY_STORE_DOMAIN", "SHOPIFY_ADMIN_TOKEN"],
-      setupUrl: "https://admin.shopify.com",
+      connected: Boolean(
+        env.SHOPIFY_STORE_DOMAIN &&
+          (env.SHOPIFY_ADMIN_TOKEN ||
+            (env.SHOPIFY_CLIENT_ID && env.SHOPIFY_CLIENT_SECRET)),
+      ),
+      requiredEnv: [
+        "SHOPIFY_STORE_DOMAIN",
+        "SHOPIFY_CLIENT_ID",
+        "SHOPIFY_CLIENT_SECRET",
+      ],
+      setupUrl: "https://dev.shopify.com/dashboard",
     },
     {
       id: "discord",

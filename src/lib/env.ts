@@ -13,8 +13,13 @@ const envSchema = z.object({
   // SQLite file for local dev; Neon/Vercel Postgres URL in production.
   DATABASE_URL: z.string().min(1).default("file:./dev.db"),
 
-  // ---- Stage 3: Shopify (human supplies via custom app) ----
+  // ---- Stage 3: Shopify (human supplies via Dev Dashboard app) ----
   SHOPIFY_STORE_DOMAIN: z.string().optional(),
+  // New Dev Dashboard apps: client credentials, exchanged for 24h
+  // tokens automatically (lib/shopify.ts).
+  SHOPIFY_CLIENT_ID: z.string().optional(),
+  SHOPIFY_CLIENT_SECRET: z.string().optional(),
+  // Legacy admin-created custom apps: static shpat_ token.
   SHOPIFY_ADMIN_TOKEN: z.string().optional(),
 
   // ---- Stage 4: comms ----

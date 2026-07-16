@@ -131,7 +131,7 @@ export function ImportModal({ open, onClose, existing, onImport }: ImportModalPr
         {error ? <p className="text-sm text-danger">{error}</p> : null}
 
         {rows ? (
-          <div className="glass-soft rounded-card px-4 py-3 text-sm">
+          <div className="surface-muted rounded-card px-4 py-3 text-sm">
             <p className="flex items-center gap-2 font-medium text-ink">
               <Upload size={14} aria-hidden className="text-accent-bright" />
               {rows.length} suppliers parsed

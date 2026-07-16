@@ -81,7 +81,7 @@ export function ApprovalCard({ approval }: { approval: ApprovalDTO }) {
   };
 
   return (
-    <article className="glass rounded-card p-4">
+    <article className="surface rounded-card p-4">
       <header className="flex flex-wrap items-center gap-2">
         <span
           className={`rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide ${kind.className}`}
@@ -117,7 +117,7 @@ export function ApprovalCard({ approval }: { approval: ApprovalDTO }) {
           aria-label="Edit draft"
         />
       ) : (
-        <pre className="glass-soft mt-2 max-h-64 overflow-y-auto rounded-card border-l-2 border-[var(--accent)] px-4 py-3 font-sans text-[13px] whitespace-pre-wrap text-ink">
+        <pre className="surface-muted mt-2 max-h-64 overflow-y-auto rounded-card border-l-2 border-[var(--accent)] px-4 py-3 font-sans text-[13px] whitespace-pre-wrap text-ink">
           {draft}
         </pre>
       )}

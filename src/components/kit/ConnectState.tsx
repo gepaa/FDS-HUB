@@ -29,7 +29,7 @@ export function ConnectState({
   checklist,
 }: ConnectStateProps) {
   return (
-    <GlassPanel glow="green" className="p-8">
+    <GlassPanel className="p-8">
       <div className="flex flex-col items-start gap-4">
         <div className="flex w-full items-start justify-between gap-4">
           <span className="flex h-12 w-12 items-center justify-center rounded-card bg-[var(--accent-soft)] text-accent-bright">
@@ -58,7 +58,7 @@ export function ConnectState({
           {requiredEnv.map((v) => (
             <code
               key={v}
-              className="glass-soft rounded-md px-2 py-1 font-mono text-[11px] text-muted"
+              className="surface-muted rounded-md px-2 py-1 font-mono text-[11px] text-muted"
             >
               {v}
             </code>

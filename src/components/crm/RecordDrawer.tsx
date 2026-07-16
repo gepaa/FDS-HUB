@@ -202,7 +202,7 @@ export function RecordDrawer({
     >
       <div className="flex flex-col gap-5">
         {/* ---- The three at-a-glance fields ---- */}
-        <section className="glass-soft flex flex-col gap-3 rounded-card p-4">
+        <section className="surface-muted flex flex-col gap-3 rounded-card p-4">
           <div className="grid grid-cols-2 gap-3">
             {creating ? (
               <Field label="Record type">
@@ -628,7 +628,7 @@ export function RecordDrawer({
               {record.interactions.map((i) => (
                 <li
                   key={i.id}
-                  className="glass-soft rounded-card px-3 py-2 text-sm"
+                  className="surface-muted rounded-card px-3 py-2 text-sm"
                 >
                   <div className="flex items-center gap-2 text-[11px] text-muted">
                     <span className="font-semibold uppercase">{i.type}</span>

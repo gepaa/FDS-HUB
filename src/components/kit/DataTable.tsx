@@ -25,7 +25,7 @@ interface DataTableProps<T> {
 }
 
 /**
- * Generic sortable glass table. Sticky header, hover rows,
+ * Generic sortable table. Sticky header, hover rows,
  * tabular numerals, keyboard-activatable rows.
  */
 export function DataTable<T>({
@@ -88,7 +88,7 @@ export function DataTable<T>({
                       : undefined
                   }
                   className={cn(
-                    "sticky top-0 z-10 whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold tracking-wide text-muted uppercase backdrop-blur-xl",
+                    "sticky top-0 z-10 whitespace-nowrap bg-[var(--panel)] px-3 py-2.5 text-left text-[11px] font-semibold tracking-wider text-muted uppercase",
                     col.align === "right" && "text-right",
                   )}
                 >

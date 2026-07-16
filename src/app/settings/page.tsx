@@ -23,7 +23,7 @@ export default async function SettingsPage() {
           <Settings size={20} aria-hidden />
         </span>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          <h1 className="font-display text-3xl text-ink">
             Settings
           </h1>
           <p className="text-sm text-muted">Preferences and environment.</p>
@@ -66,7 +66,7 @@ export default async function SettingsPage() {
           ) : null}
           <p className="text-xs text-muted">
             Re-seed the CRM from data/suppliers.csv any time with{" "}
-            <code className="glass-soft rounded px-1.5 py-0.5 font-mono text-[11px]">
+            <code className="surface-muted rounded px-1.5 py-0.5 font-mono text-[11px]">
               npm run db:seed
             </code>
             .
