@@ -1,23 +1,40 @@
 import type { Metadata } from "next";
-import { CheckSquare } from "lucide-react";
-import { PanelPlaceholder } from "@/components/shell/PanelPlaceholder";
+import { prisma } from "@/lib/prisma";
+import { TaskBoard, type TaskDTO } from "@/components/tasks/TaskBoard";
 
-export const metadata: Metadata = { title: "Tasks" };
+export const metadata: Metadata = { title: "Task Queue" };
+export const dynamic = "force-dynamic";
 
-export default function TasksPage() {
+export default async function TasksPage() {
+  const tasks = await prisma.hqTask.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+
+  const dtos: TaskDTO[] = tasks.map((t) => ({
+    id: t.id,
+    title: t.title,
+    detail: t.detail,
+    status: t.status,
+    assignee: t.assignee,
+    origin: t.origin,
+    result: t.result,
+    createdAt: t.createdAt.toISOString(),
+    completedAt: t.completedAt ? t.completedAt.toISOString() : null,
+  }));
+
   return (
-    <PanelPlaceholder
-      icon={CheckSquare}
-      title="Tasks"
-      description="To-dos wired into the rest of the hub."
-      stage={4}
-      features={[
-        "Lists + tasks with notes, due dates, and priority",
-        "Tasks attach to a supplier or order",
-        "Board and list views with today / overdue / upcoming smart views",
-        "Quick-add from the global command bar",
-        "Reminders surfaced on the dashboard",
-      ]}
-    />
+    <div className="flex flex-col gap-5">
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          Task Queue
+        </h1>
+        <p className="mt-1 max-w-2xl text-sm text-muted">
+          Assign work in plain language. The PM plans it, dispatches workers,
+          and reports back — anything outbound still goes through Approvals.
+        </p>
+      </header>
+      <TaskBoard initial={dtos} />
+    </div>
   );
 }

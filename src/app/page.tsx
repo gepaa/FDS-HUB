@@ -1,49 +1,69 @@
 import Link from "next/link";
 import {
-  CalendarDays,
-  CheckSquare,
   Clock,
+  ListChecks,
   MessagesSquare,
-  Plug,
-  ShoppingBag,
+  Moon,
+  ShieldCheck,
   Users,
-  Wallet,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { getIntegrations } from "@/lib/integrations";
-import { needsFollowUp, SUPPLIER_STAGES as STAGES } from "@/lib/domain";
+import {
+  needsFollowUp,
+  SUPPLIER_STAGES,
+  STAGE_MAP,
+} from "@/lib/domain";
 import { shortDate } from "@/lib/utils";
 import { StatTile } from "@/components/kit/StatTile";
-import { StatusPill } from "@/components/kit/StatusPill";
 import { PanelCard } from "@/components/dashboard/PanelCard";
 import { PipelineBar } from "@/components/dashboard/PipelineBar";
+import { GlassPanel } from "@/components/kit/GlassPanel";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const suppliers = await prisma.crmRecord.findMany({
-    where: { type: "supplier" },
-    orderBy: { name: "asc" },
-  });
-  const integrations = getIntegrations();
+  const [records, pendingApprovals, runningTasks, latestBrief] =
+    await Promise.all([
+      prisma.crmRecord.findMany({ orderBy: { name: "asc" } }),
+      prisma.approval.findMany({
+        where: { status: "pending" },
+        orderBy: { createdAt: "asc" },
+        take: 10,
+        include: { record: { select: { name: true } } },
+      }),
+      prisma.hqTask.findMany({
+        where: { status: { in: ["queued", "running"] } },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+      }),
+      prisma.agentMessage.findFirst({
+        where: { kind: "brief" },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+  const suppliers = records.filter((r) => r.type === "supplier");
+  const leads = records.filter((r) => r.type === "lead");
 
   const stageCounts: Record<string, number> = {};
-  for (const st of STAGES) stageCounts[st.id] = 0;
-  for (const s of suppliers) {
+  for (const st of SUPPLIER_STAGES) stageCounts[st.id] = 0;
+  for (const s of suppliers)
     stageCounts[s.status] = (stageCounts[s.status] ?? 0) + 1;
-  }
 
-  const followUps = suppliers
-    .filter((s) =>
-      needsFollowUp({ nextActionDate: s.nextActionDate, status: s.status }),
+  const followUps = records
+    .filter((r) =>
+      needsFollowUp({ nextActionDate: r.nextActionDate, status: r.status }),
     )
     .sort(
       (a, b) =>
         (a.nextActionDate?.getTime() ?? 0) - (b.nextActionDate?.getTime() ?? 0),
     );
 
-  const goldCount = suppliers.filter((s) => s.rank === "Gold").length;
-  const contacted = stageCounts["CONTACTED"] ?? 0;
+  const yourMoves = records
+    .filter((r) => r.owner === "you" && r.nextAction)
+    .slice(0, 5);
+
+  const awaitingYou = pendingApprovals.length + yourMoves.length;
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -57,41 +77,62 @@ export default async function DashboardPage() {
           {today}
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-ink">
-          Command Hub
+          Operations HQ
         </h1>
         <p className="mt-1.5 max-w-xl text-sm text-muted">
-          The whole operation on one glass surface — supplier pipeline live
-          now; accounting, Shopify, tasks, comms, and calendar light up in the
-          next stages.
+          Claude runs everything around the sale — you approve the outbound
+          and close the deals.
         </p>
       </header>
 
+      {latestBrief ? (
+        <GlassPanel className="border-l-2 border-[var(--accent)] px-5 py-4">
+          <p className="flex items-center gap-2 text-xs font-semibold tracking-widest text-accent-bright uppercase">
+            <Moon size={13} aria-hidden />
+            {latestBrief.title ?? "Latest brief"} ·{" "}
+            {shortDate(latestBrief.createdAt)}
+          </p>
+          <p className="mt-2 text-sm whitespace-pre-wrap text-ink">
+            {latestBrief.body}
+          </p>
+        </GlassPanel>
+      ) : (
+        <GlassPanel className="px-5 py-4">
+          <p className="text-sm text-muted">
+            🌙 No PM run yet. Once the nightly run is live, the morning brief
+            lands here: what was researched, drafted, and queued while you
+            slept.
+          </p>
+        </GlassPanel>
+      )}
+
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatTile
-          label="Suppliers"
+          label="Suppliers in pipeline"
           value={suppliers.length}
-          sub={`${goldCount} Gold-rank targets`}
+          sub={`${stageCounts["CONTACTED"] ?? 0} contacted or waiting`}
           icon={Users}
           tone="accent"
         />
         <StatTile
-          label="Needs follow-up"
-          value={followUps.length}
-          sub="due today or overdue"
-          icon={Clock}
-          tone={followUps.length > 0 ? "amber" : "default"}
-        />
-        <StatTile
-          label="Contacted"
-          value={contacted}
-          sub="outreach in flight"
+          label="Active leads"
+          value={leads.length}
+          sub="inbound buyers"
           icon={MessagesSquare}
         />
         <StatTile
-          label="Integrations"
-          value={`${integrations.filter((i) => i.connected).length}/${integrations.length}`}
-          sub="services connected"
-          icon={Plug}
+          label="Awaiting you"
+          value={awaitingYou}
+          sub={`${pendingApprovals.length} approvals · ${yourMoves.length} actions`}
+          icon={ShieldCheck}
+          tone={awaitingYou > 0 ? "amber" : "default"}
+        />
+        <StatTile
+          label="Follow-ups due"
+          value={followUps.length}
+          sub="today or overdue"
+          icon={Clock}
+          tone={followUps.length > 0 ? "amber" : "default"}
         />
       </div>
 
@@ -106,30 +147,104 @@ export default async function DashboardPage() {
           <PipelineBar counts={stageCounts} />
         </PanelCard>
 
-        <PanelCard href="/crm" icon={Clock} title="Follow-ups due">
-          {followUps.length === 0 ? (
+        <PanelCard href="/approvals" icon={ShieldCheck} title="What needs you">
+          {pendingApprovals.length === 0 && yourMoves.length === 0 ? (
             <p className="text-sm text-muted">
-              Nothing due. Set next-action dates in the CRM and they surface
-              here.
+              Nothing. When the agent drafts outbound work or a record needs
+              your move, it shows up here.
             </p>
           ) : (
             <ul className="flex flex-col gap-1.5">
-              {followUps.slice(0, 5).map((s) => (
-                <li key={s.id}>
+              {pendingApprovals.slice(0, 4).map((a) => (
+                <li key={a.id} className="flex items-center gap-2 text-sm">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#c2410c]" />
+                  <span className="min-w-0 flex-1 truncate text-ink">
+                    {a.title}
+                  </span>
+                  <span className="shrink-0 text-[10px] font-bold tracking-wide text-muted uppercase">
+                    approve
+                  </span>
+                </li>
+              ))}
+              {yourMoves.map((r) => (
+                <li key={r.id}>
                   <Link
-                    href={`/crm?supplier=${s.id}`}
+                    href={`/crm?record=${r.id}`}
+                    className="flex items-center gap-2 text-sm hover:underline"
+                  >
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--amber)]" />
+                    <span className="min-w-0 flex-1 truncate text-ink">
+                      {r.name}: {r.nextAction}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </PanelCard>
+
+        <PanelCard href="/tasks" icon={ListChecks} title="Task queue">
+          {runningTasks.length === 0 ? (
+            <p className="text-sm text-muted">
+              Queue is empty. Assign work in plain language and the PM runs it
+              on its next cycle.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {runningTasks.map((t) => (
+                <li key={t.id} className="flex items-center gap-2 text-sm">
+                  <span
+                    className={
+                      "h-1.5 w-1.5 shrink-0 rounded-full " +
+                      (t.status === "running"
+                        ? "bg-[var(--accent-bright)]"
+                        : "bg-[var(--hairline-strong)]")
+                    }
+                  />
+                  <span className="min-w-0 flex-1 truncate text-ink">
+                    {t.title}
+                  </span>
+                  <span className="shrink-0 text-[10px] font-bold tracking-wide text-muted uppercase">
+                    {t.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </PanelCard>
+
+        <PanelCard
+          href="/crm"
+          icon={Clock}
+          title="Follow-ups due"
+          className="lg:col-span-2"
+        >
+          {followUps.length === 0 ? (
+            <p className="text-sm text-muted">
+              Nothing due. Records with a next-action date surface here when
+              it arrives.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {followUps.slice(0, 5).map((r) => (
+                <li key={r.id}>
+                  <Link
+                    href={`/crm?record=${r.id}`}
                     className="press flex items-center gap-2 rounded-control px-2 py-1.5 hover:bg-[var(--panel-soft)]"
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-ink">
-                        {s.name}
+                        {r.name}
+                        <span className="ml-2 text-xs font-normal text-muted">
+                          {STAGE_MAP[r.status]?.label ?? r.status}
+                        </span>
                       </span>
                       <span className="block truncate text-xs text-muted">
-                        {s.nextAction ?? "Follow up"}
+                        {r.nextAction ?? "Follow up"}
                       </span>
                     </span>
                     <span className="num shrink-0 text-xs font-medium text-amber">
-                      {shortDate(s.nextActionDate)}
+                      {shortDate(r.nextActionDate)}
                     </span>
                   </Link>
                 </li>
@@ -141,94 +256,6 @@ export default async function DashboardPage() {
               ) : null}
             </ul>
           )}
-        </PanelCard>
-
-        <PanelCard
-          href="/accounting"
-          icon={Wallet}
-          title="Accounting"
-          aside={<StatusPill status="planned" label="Stage 2" />}
-        >
-          <p className="text-sm leading-relaxed text-muted">
-            Founders-only P&L, per-product margins, CAC, and one-click tax
-            export. No numbers shown until the ledger exists — this panel never
-            fakes data.
-          </p>
-        </PanelCard>
-
-        <PanelCard
-          href="/shopify"
-          icon={ShoppingBag}
-          title="Shopify"
-          aside={
-            <StatusPill
-              status={
-                integrations.find((i) => i.id === "shopify")?.connected
-                  ? "connected"
-                  : "disconnected"
-              }
-              label={
-                integrations.find((i) => i.id === "shopify")?.connected
-                  ? "Connected"
-                  : "Not connected"
-              }
-            />
-          }
-        >
-          <p className="text-sm leading-relaxed text-muted">
-            Orders, sales, AOV, and customer creation — live from the Admin
-            API the moment the store token is dropped in.
-          </p>
-        </PanelCard>
-
-        <PanelCard
-          href="/tasks"
-          icon={CheckSquare}
-          title="Tasks"
-          aside={<StatusPill status="planned" label="Stage 4" />}
-        >
-          <p className="text-sm leading-relaxed text-muted">
-            To-dos linked to suppliers and orders, with today / overdue /
-            upcoming smart views and quick-add from the command bar.
-          </p>
-        </PanelCard>
-
-        <PanelCard
-          href="/comms"
-          icon={MessagesSquare}
-          title="Comms"
-          aside={<StatusPill status="planned" label="Stage 4" />}
-        >
-          <p className="text-sm leading-relaxed text-muted">
-            One inbox for Discord, Gmail, and Shopify Inbox — every message
-            tagged by source and linkable to a supplier.
-          </p>
-        </PanelCard>
-
-        <PanelCard
-          href="/calendar"
-          icon={CalendarDays}
-          title="Calendar"
-          aside={<StatusPill status="planned" label="Stage 5" />}
-        >
-          <p className="text-sm leading-relaxed text-muted">
-            Today&apos;s agenda from Google Calendar, plus one-tap events from
-            supplier follow-ups.
-          </p>
-        </PanelCard>
-
-        <PanelCard href="/integrations" icon={Plug} title="Connection health">
-          <ul className="flex flex-wrap gap-2">
-            {integrations.map((i) => (
-              <li key={i.id}>
-                <StatusPill
-                  status={i.connected ? "connected" : "disconnected"}
-                  pulse={i.connected}
-                  label={i.name}
-                />
-              </li>
-            ))}
-          </ul>
         </PanelCard>
       </div>
     </div>

@@ -100,6 +100,7 @@ model CrmRecord {
   updatedAt DateTime @updatedAt
 
   interactions Interaction[]
+  approvals    Approval[]
 
   @@index([status])
   @@index([cluster])
@@ -121,4 +122,67 @@ model Interaction {
   actor    String    @default("you") // you | claude | system
 
   @@index([recordId, date])
+}
+
+// ---------------- The gate (Blueprint §3 Layer 4) ----------------
+//
+// Every outbound / irreversible action the agent wants to take lands
+// here as a draft and waits for one-tap human approval. Nothing fires
+// autonomously (D7, autonomy notch 0).
+model Approval {
+  id           String     @id @default(cuid())
+  kind         String // outbound_email | publish_product | price_quote | discount | other
+  title        String
+  recordId     String?
+  record       CrmRecord? @relation(fields: [recordId], references: [id], onDelete: SetNull)
+  draftSubject String?
+  draftBody    String
+  reasoning    String? // why Claude queued this (full context, shown on the card)
+  status       String     @default("pending") // pending | approved | rejected | snoozed | executed
+  decisionNote String?
+  snoozedUntil DateTime?
+  createdBy    String     @default("claude")
+  decidedAt    DateTime?
+  executedAt   DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([status, createdAt])
+}
+
+// ---------------- Task queue (Blueprint §3 Layer 5) ----------------
+//
+// Work assigned in plain language. The PM reads `queued`, plans, runs,
+// and writes results back. `suggested` = the PM proposing work for
+// Pablo to approve into the queue.
+model HqTask {
+  id          String    @id @default(cuid())
+  title       String
+  detail      String?
+  status      String    @default("queued") // suggested | queued | running | done | cancelled
+  assignee    String    @default("claude") // claude | you
+  origin      String    @default("you") // you | claude
+  result      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([status, createdAt])
+}
+
+// ---------------- Agent messages (the thin Chat surface) ----------------
+//
+// Morning briefs, pings, and run logs from the PM land here; Pablo's
+// replies are stored too (the PM reads them on its next run). True
+// two-way chat stays in Claude itself for now (Decisions log).
+model AgentMessage {
+  id        String   @id @default(cuid())
+  role      String   @default("claude") // claude | you
+  kind      String   @default("log") // brief | ping | log | chat
+  title     String?
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+  @@index([createdAt])
 }
