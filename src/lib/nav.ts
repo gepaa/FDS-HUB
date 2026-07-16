@@ -73,6 +73,13 @@ export const NAV_ITEMS: NavItem[] = [
     section: "hq",
     description: "How Claude does everything — the playbooks.",
   },
+  {
+    href: "/shopify",
+    label: "Shopify",
+    icon: ShoppingBag,
+    section: "hq",
+    description: "Store analytics + dealer brands, wired to the CRM.",
+  },
   // ---- Parked (D6): kept as placeholders, zero investment ----
   {
     href: "/accounting",
@@ -80,13 +87,6 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Wallet,
     section: "parked",
     description: "Founders-only P&L — parked.",
-  },
-  {
-    href: "/shopify",
-    label: "Shopify",
-    icon: ShoppingBag,
-    section: "parked",
-    description: "Store analytics panel — parked (engine uses connectors).",
   },
   {
     href: "/comms",
