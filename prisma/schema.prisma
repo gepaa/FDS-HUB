@@ -5,6 +5,12 @@
 // your Neon/Vercel Postgres connection string, then run
 // `npx prisma migrate dev`. Models avoid SQLite-only or Postgres-only
 // features so the switch is mechanical. See README → "Database".
+//
+// MIGRATION POLICY (docs/FDS_HQ_Decisions.md): migrations against the
+// CrmRecord data table are ADDITIVE ONLY — the physical table keeps its
+// original "Supplier" name via @@map, and generated SQL is inspected
+// before applying (no DROP/rebuild of the data table). This protects
+// the 100-supplier dataset (D1).
 
 generator client {
   provider = "prisma-client"
@@ -22,14 +28,32 @@ model HealthCheck {
   checkedAt DateTime @default(now())
 }
 
-// ---------------- Stage 1: CRM ----------------
-
-// Pipeline stage values (validated in app code, kept as String for
+// ---------------- CRM: the unified Record spine ----------------
+//
+// One table, two record types (docs/FDS_CRM_Data_Model.md + Decisions):
+//   type = "supplier" — outbound dealer recruiting
+//   type = "lead"     — inbound buyers
+//
+// Status ladders live in src/lib/domain.ts (kept as String for
 // cross-database portability):
-// NOT_CONTACTED | CONTACTED | APPLIED | PENDING_REPLY | APPROVED | LIVE | REJECTED
-model Supplier {
-  id           String  @id @default(cuid())
-  name         String
+//   supplier: SOURCED | QUALIFIED | CONTACTED | REPLIED |
+//             IN_CONVERSATION | CALL_SCHEDULED | NEGOTIATING |
+//             AUTHORIZED | ON_HOLD | DECLINED
+//   lead:     NEW | CONTACTED | ENGAGED | QUOTE_REQUESTED |
+//             QUOTE_SENT | CALL_NEGOTIATION | WON | NURTURE | LOST
+//
+// NOTE: the DB-level default on `status` is the legacy value and is
+// deliberately NOT changed (changing a SQLite column default forces a
+// destructive table rebuild). The app layer always sets status
+// explicitly on create (src/lib/validation.ts).
+model CrmRecord {
+  id       String  @id @default(cuid())
+  recordId String? @unique // human ID: FDS-SUP-#### / FDS-LEAD-####
+  type     String  @default("supplier") // supplier | lead
+  name     String
+  company  String?
+
+  // Supplier sheet fields (kept additive — real FDS data lives here)
   niche        String?
   cluster      String  @default("Other")
   bestSeller   String?
@@ -39,13 +63,32 @@ model Supplier {
   mainContact  String?
   email        String?
   phone        String?
-  stage        String  @default("NOT_CONTACTED")
 
-  mapPolicy    String?
-  dropship     Boolean?
-  freightModel String?
-  leadTime     String?
-  warranty     String?
+  status String @default("NOT_CONTACTED") @map("stage") // see NOTE above
+
+  // Spine (CRM Data Model §2)
+  owner           String  @default("unassigned") // claude | you | unassigned
+  priority        String? // hot | warm | cold
+  contextSummary  String?
+  tags            String  @default("[]") // JSON array of "dimension:value" strings
+  linkedThread    String? // Gmail thread ID(s)
+  linkedShopifyId String? // Shopify customer/order ID
+
+  // Supplier-only (§4, MVP subset)
+  mapPolicy           String?
+  dropship            Boolean?
+  freightModel        String?
+  leadTime            String?
+  warranty            String?
+  productCategories   String  @default("[]") // JSON array; maps to Collection Map
+  dealerProgram       String? // dropship | stocking | none | unknown
+  mediaPermission     String? // granted | requested | none
+  authorizationStatus String? // none | pending | authorized
+
+  // Lead-only (§5, MVP subset)
+  productInterest String?
+  intent          String? // browsing | comparing | ready-to-buy
+  quoteAmount     Float?
 
   lastContactDate DateTime?
   nextAction      String?
@@ -58,18 +101,24 @@ model Supplier {
 
   interactions Interaction[]
 
-  @@index([stage])
+  @@index([status])
   @@index([cluster])
   @@index([nextActionDate])
+  @@index([type])
+  @@index([owner])
+  @@map("Supplier")
 }
 
+// The activity_log of the spec (CRM Data Model §2) — every email,
+// call, note, and system event on a record, with who logged it.
 model Interaction {
-  id         String   @id @default(cuid())
-  supplierId String
-  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  date       DateTime @default(now())
-  type       String // email | call | form | note
-  body       String
+  id       String    @id @default(cuid())
+  recordId String    @map("supplierId")
+  record   CrmRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  date     DateTime  @default(now())
+  type     String // email | call | form | note | status | system
+  body     String
+  actor    String    @default("you") // you | claude | system
 
-  @@index([supplierId, date])
+  @@index([recordId, date])
 }

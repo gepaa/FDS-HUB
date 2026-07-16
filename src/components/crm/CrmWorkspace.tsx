@@ -12,9 +12,11 @@ import {
 } from "lucide-react";
 import {
   needsFollowUp,
+  RECORD_TYPES,
   type InteractionType,
+  type RecordDTO,
+  type RecordType,
   type StageId,
-  type SupplierDTO,
 } from "@/lib/domain";
 import type { ParsedSupplier } from "@/lib/csv";
 import { api } from "@/lib/api";
@@ -22,18 +24,19 @@ import { useToast } from "@/components/kit/Toast";
 import { Button } from "@/components/kit/Button";
 import { StatTile } from "@/components/kit/StatTile";
 import { Modal } from "@/components/kit/Modal";
+import { SegmentedControl } from "@/components/kit/SegmentedControl";
 import { Board } from "@/components/crm/Board";
 import { TableView } from "@/components/crm/TableView";
 import { FilterBar, type CrmFilters } from "@/components/crm/FilterBar";
 import {
-  SupplierDrawer,
-  type SupplierFormData,
-} from "@/components/crm/SupplierDrawer";
+  RecordDrawer,
+  type RecordFormData,
+} from "@/components/crm/RecordDrawer";
 import { ImportModal } from "@/components/crm/ImportModal";
 
 interface CrmWorkspaceProps {
-  initial: SupplierDTO[];
-  initialSupplierId?: string;
+  initial: RecordDTO[];
+  initialRecordId?: string;
   initialCreate?: boolean;
 }
 
@@ -42,16 +45,18 @@ const defaultFilters: CrmFilters = {
   cluster: null,
   rank: null,
   stage: null,
+  owner: null,
   followUpOnly: false,
 };
 
 export function CrmWorkspace({
   initial,
-  initialSupplierId,
+  initialRecordId,
   initialCreate,
 }: CrmWorkspaceProps) {
   const { toast } = useToast();
-  const [suppliers, setSuppliers] = useState<SupplierDTO[]>(initial);
+  const [records, setRecords] = useState<RecordDTO[]>(initial);
+  const [recordType, setRecordType] = useState<RecordType>("supplier");
   const [view, setView] = useState<"board" | "table">("board");
   const [filters, setFilters] = useState<CrmFilters>(defaultFilters);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -59,116 +64,122 @@ export function CrmWorkspace({
   const [importOpen, setImportOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // Deep links: /crm?supplier=<id> and /crm?new=1
+  // Deep links: /crm?record=<id> and /crm?new=1
   useEffect(() => {
-    if (initialSupplierId) setSelectedId(initialSupplierId);
-  }, [initialSupplierId]);
+    if (initialRecordId) {
+      setSelectedId(initialRecordId);
+      const r = initial.find((x) => x.id === initialRecordId);
+      if (r) setRecordType(r.type);
+    }
+  }, [initialRecordId, initial]);
   useEffect(() => {
     if (initialCreate) setCreating(true);
   }, [initialCreate]);
 
   const selected = useMemo(
-    () => suppliers.find((s) => s.id === selectedId) ?? null,
-    [suppliers, selectedId],
+    () => records.find((r) => r.id === selectedId) ?? null,
+    [records, selectedId],
   );
 
-  const replace = (dto: SupplierDTO) =>
-    setSuppliers((prev) => prev.map((s) => (s.id === dto.id ? dto : s)));
+  const replace = (dto: RecordDTO) =>
+    setRecords((prev) => prev.map((r) => (r.id === dto.id ? dto : r)));
 
   // ---------- derived ----------
-  const clusterCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const s of suppliers) counts[s.cluster] = (counts[s.cluster] ?? 0) + 1;
-    return counts;
-  }, [suppliers]);
-
-  const followUpCount = useMemo(
-    () => suppliers.filter(needsFollowUp).length,
-    [suppliers],
+  const ofType = useMemo(
+    () => records.filter((r) => r.type === recordType),
+    [records, recordType],
   );
 
-  const goldCount = suppliers.filter((s) => s.rank === "Gold").length;
-  const silverCount = suppliers.filter((s) => s.rank === "Silver").length;
-  const bronzeCount = suppliers.filter((s) => s.rank === "Bronze").length;
-  const inMotion = suppliers.filter(
-    (s) => s.stage !== "NOT_CONTACTED" && s.stage !== "REJECTED",
+  const clusterCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const r of ofType) counts[r.cluster] = (counts[r.cluster] ?? 0) + 1;
+    return counts;
+  }, [ofType]);
+
+  const followUpCount = useMemo(
+    () => ofType.filter(needsFollowUp).length,
+    [ofType],
+  );
+
+  const goldCount = ofType.filter((r) => r.rank === "Gold").length;
+  const silverCount = ofType.filter((r) => r.rank === "Silver").length;
+  const bronzeCount = ofType.filter((r) => r.rank === "Bronze").length;
+  const claudeOwned = ofType.filter((r) => r.owner === "claude").length;
+  const inMotion = ofType.filter(
+    (r) => !["SOURCED", "QUALIFIED", "NEW", "DECLINED", "LOST"].includes(r.status),
   ).length;
 
   const filtered = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
-    return suppliers.filter((s) => {
+    return ofType.filter((r) => {
       if (
         q &&
-        ![s.name, s.niche, s.email, s.mainContact, s.phone, s.bestSeller]
+        ![
+          r.name,
+          r.niche,
+          r.email,
+          r.mainContact,
+          r.phone,
+          r.bestSeller,
+          r.company,
+          r.productInterest,
+          r.contextSummary,
+        ]
           .filter(Boolean)
           .some((v) => (v as string).toLowerCase().includes(q))
       )
         return false;
-      if (filters.cluster && s.cluster !== filters.cluster) return false;
+      if (filters.cluster && r.cluster !== filters.cluster) return false;
       if (filters.rank === "unranked") {
-        if (s.rank) return false;
-      } else if (filters.rank && s.rank !== filters.rank) {
+        if (r.rank) return false;
+      } else if (filters.rank && r.rank !== filters.rank) {
         return false;
       }
-      if (view === "table" && filters.stage && s.stage !== filters.stage)
+      if (filters.owner && r.owner !== filters.owner) return false;
+      if (view === "table" && filters.stage && r.status !== filters.stage)
         return false;
-      if (filters.followUpOnly && !needsFollowUp(s)) return false;
+      if (filters.followUpOnly && !needsFollowUp(r)) return false;
       return true;
     });
-  }, [suppliers, filters, view]);
+  }, [ofType, filters, view]);
 
   // ---------- mutations ----------
-  const moveStage = async (id: string, stage: StageId) => {
-    const before = suppliers;
-    setSuppliers((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, stage } : s)),
+  const moveStage = async (id: string, status: StageId) => {
+    const before = records;
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status } : r)),
     );
     try {
-      const dto = await api.updateSupplier(id, { stage });
+      const dto = await api.updateRecord(id, { status });
       replace(dto);
     } catch (e) {
-      setSuppliers(before);
+      setRecords(before);
       toast({
-        title: "Couldn't move supplier",
+        title: "Couldn't move record",
         description: e instanceof Error ? e.message : undefined,
         tone: "error",
       });
     }
   };
 
-  const saveSupplier = async (data: SupplierFormData) => {
+  const saveRecord = async (data: RecordFormData) => {
     try {
       if (creating) {
-        const dto = await api.createSupplier(data);
-        setSuppliers((prev) =>
+        const dto = await api.createRecord(data);
+        setRecords((prev) =>
           [...prev, dto].sort((a, b) => a.name.localeCompare(b.name)),
         );
         setCreating(false);
         setSelectedId(dto.id);
         toast({ title: `${dto.name} added to the pipeline`, tone: "success" });
       } else if (selected) {
-        const dto = await api.updateSupplier(selected.id, data);
+        const dto = await api.updateRecord(selected.id, data);
         replace(dto);
         toast({ title: "Changes saved", tone: "success" });
       }
     } catch (e) {
       toast({
         title: "Save failed",
-        description: e instanceof Error ? e.message : undefined,
-        tone: "error",
-      });
-    }
-  };
-
-  const quickPatch = async (patch: Partial<SupplierFormData>) => {
-    if (!selected) return;
-    try {
-      const dto = await api.updateSupplier(selected.id, patch);
-      replace(dto);
-      toast({ title: "Updated", tone: "success" });
-    } catch (e) {
-      toast({
-        title: "Update failed",
         description: e instanceof Error ? e.message : undefined,
         tone: "error",
       });
@@ -190,12 +201,12 @@ export function CrmWorkspace({
     }
   };
 
-  const deleteSupplier = async () => {
+  const deleteRecord = async () => {
     if (!selected) return;
     const name = selected.name;
     try {
-      await api.deleteSupplier(selected.id);
-      setSuppliers((prev) => prev.filter((s) => s.id !== selected.id));
+      await api.deleteRecord(selected.id);
+      setRecords((prev) => prev.filter((r) => r.id !== selected.id));
       setConfirmDelete(false);
       setSelectedId(null);
       toast({ title: `${name} removed`, tone: "info" });
@@ -210,11 +221,9 @@ export function CrmWorkspace({
 
   const importRows = async (rows: ParsedSupplier[]) => {
     try {
-      const result = await api.importSuppliers(rows);
-      const fresh = await fetch("/api/suppliers").then(
-        (r) => r.json() as Promise<SupplierDTO[]>,
-      );
-      setSuppliers(fresh);
+      const result = await api.importRecords(rows);
+      const fresh = await api.listRecords();
+      setRecords(fresh);
       toast({
         title: "Import complete",
         description: `${result.created} created · ${result.updated} updated`,
@@ -230,35 +239,55 @@ export function CrmWorkspace({
     }
   };
 
+  const leadCount = records.filter((r) => r.type === "lead").length;
+  const supplierCount = records.filter((r) => r.type === "supplier").length;
+
   return (
     <div className="flex flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">
-            Supplier CRM
+            CRM
           </h1>
           <p className="mt-1 text-sm text-muted">
-            {suppliers.length} suppliers ·{" "}
+            {supplierCount} suppliers · {leadCount} leads ·{" "}
             {followUpCount > 0
               ? `${followUpCount} need follow-up`
               : "no follow-ups due"}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setImportOpen(true)}>
-            <Upload size={14} aria-hidden />
-            Import
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              window.location.href = "/api/suppliers/export";
+          <SegmentedControl
+            ariaLabel="Record type"
+            segments={RECORD_TYPES.map((t) => ({ id: t.id, label: t.label }))}
+            value={recordType}
+            onChange={(id) => {
+              setRecordType(id as RecordType);
+              setFilters(defaultFilters);
             }}
-          >
-            <Download size={14} aria-hidden />
-            Export
-          </Button>
+          />
+          {recordType === "supplier" ? (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setImportOpen(true)}
+              >
+                <Upload size={14} aria-hidden />
+                Import
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  window.location.href = `/api/records/export?type=${recordType}`;
+                }}
+              >
+                <Download size={14} aria-hidden />
+                Export
+              </Button>
+            </>
+          ) : null}
           <Button
             variant="primary"
             size="sm"
@@ -268,24 +297,33 @@ export function CrmWorkspace({
             }}
           >
             <Plus size={14} aria-hidden />
-            New supplier
+            {recordType === "lead" ? "New lead" : "New supplier"}
           </Button>
         </div>
       </header>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatTile
-          label="Total suppliers"
-          value={suppliers.length}
+          label={recordType === "lead" ? "Total leads" : "Total suppliers"}
+          value={ofType.length}
           icon={Users}
           tone="accent"
         />
-        <StatTile
-          label="Gold rank"
-          value={goldCount}
-          sub={`${silverCount} Silver · ${bronzeCount} Bronze`}
-          icon={Medal}
-        />
+        {recordType === "supplier" ? (
+          <StatTile
+            label="Gold rank"
+            value={goldCount}
+            sub={`${silverCount} Silver · ${bronzeCount} Bronze`}
+            icon={Medal}
+          />
+        ) : (
+          <StatTile
+            label="Claude-owned"
+            value={claudeOwned}
+            sub="next move is Claude's"
+            icon={Medal}
+          />
+        )}
         <StatTile
           label="In motion"
           value={inMotion}
@@ -302,6 +340,7 @@ export function CrmWorkspace({
       </div>
 
       <FilterBar
+        recordType={recordType}
         filters={filters}
         onChange={setFilters}
         view={view}
@@ -312,31 +351,36 @@ export function CrmWorkspace({
 
       {view === "board" ? (
         <Board
-          suppliers={filtered}
+          records={filtered}
+          recordType={recordType}
           onMoveStage={moveStage}
           onSelect={setSelectedId}
         />
       ) : (
-        <TableView suppliers={filtered} onSelect={setSelectedId} />
+        <TableView
+          records={filtered}
+          recordType={recordType}
+          onSelect={setSelectedId}
+        />
       )}
 
-      <SupplierDrawer
-        supplier={creating ? null : selected}
+      <RecordDrawer
+        record={creating ? null : selected}
+        createType={recordType}
         open={creating || selected !== null}
         onClose={() => {
           setCreating(false);
           setSelectedId(null);
         }}
-        onSave={saveSupplier}
+        onSave={saveRecord}
         onDelete={() => setConfirmDelete(true)}
         onLogInteraction={logInteraction}
-        onQuickAction={quickPatch}
       />
 
       <Modal
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        title="Delete supplier?"
+        title="Delete record?"
         footer={
           <>
             <Button
@@ -346,7 +390,7 @@ export function CrmWorkspace({
             >
               Cancel
             </Button>
-            <Button variant="danger" size="sm" onClick={deleteSupplier}>
+            <Button variant="danger" size="sm" onClick={deleteRecord}>
               Delete permanently
             </Button>
           </>
@@ -354,7 +398,7 @@ export function CrmWorkspace({
       >
         <p className="text-sm text-muted">
           {selected
-            ? `“${selected.name}” and its interaction log will be permanently removed. This cannot be undone.`
+            ? `“${selected.name}” and its activity log will be permanently removed. This cannot be undone.`
             : ""}
         </p>
       </Modal>
@@ -362,7 +406,7 @@ export function CrmWorkspace({
       <ImportModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        existing={suppliers}
+        existing={records}
         onImport={importRows}
       />
     </div>

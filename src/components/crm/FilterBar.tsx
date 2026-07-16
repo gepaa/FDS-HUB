@@ -1,7 +1,13 @@
 "use client";
 
 import { Columns3, Search, TableProperties } from "lucide-react";
-import { CLUSTERS, RANKS, STAGES } from "@/lib/domain";
+import {
+  CLUSTERS,
+  OWNERS,
+  RANKS,
+  stagesFor,
+  type RecordType,
+} from "@/lib/domain";
 import { Chip } from "@/components/kit/Chip";
 import { Input, Select } from "@/components/kit/Field";
 import { SegmentedControl } from "@/components/kit/SegmentedControl";
@@ -11,10 +17,12 @@ export interface CrmFilters {
   cluster: string | null;
   rank: string | null;
   stage: string | null;
+  owner: string | null;
   followUpOnly: boolean;
 }
 
 interface FilterBarProps {
+  recordType: RecordType;
   filters: CrmFilters;
   onChange: (next: CrmFilters) => void;
   view: "board" | "table";
@@ -24,6 +32,7 @@ interface FilterBarProps {
 }
 
 export function FilterBar({
+  recordType,
   filters,
   onChange,
   view,
@@ -48,23 +57,39 @@ export function FilterBar({
             onChange={(e) => set({ search: e.target.value })}
             placeholder="Filter by name, niche, contact…"
             className="pl-8"
-            aria-label="Filter suppliers"
+            aria-label="Filter records"
           />
         </div>
 
+        {recordType === "supplier" ? (
+          <Select
+            value={filters.rank ?? ""}
+            onChange={(e) => set({ rank: e.target.value || null })}
+            aria-label="Filter by rank"
+            className="w-32"
+          >
+            <option value="">All ranks</option>
+            {RANKS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+            <option value="unranked">Unranked</option>
+          </Select>
+        ) : null}
+
         <Select
-          value={filters.rank ?? ""}
-          onChange={(e) => set({ rank: e.target.value || null })}
-          aria-label="Filter by rank"
-          className="w-32"
+          value={filters.owner ?? ""}
+          onChange={(e) => set({ owner: e.target.value || null })}
+          aria-label="Filter by owner"
+          className="w-36"
         >
-          <option value="">All ranks</option>
-          {RANKS.map((r) => (
-            <option key={r} value={r}>
-              {r}
+          <option value="">All owners</option>
+          {OWNERS.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
             </option>
           ))}
-          <option value="unranked">Unranked</option>
         </Select>
 
         {view === "table" ? (
@@ -72,10 +97,10 @@ export function FilterBar({
             value={filters.stage ?? ""}
             onChange={(e) => set({ stage: e.target.value || null })}
             aria-label="Filter by stage"
-            className="w-40"
+            className="w-44"
           >
             <option value="">All stages</option>
-            {STAGES.map((s) => (
+            {stagesFor(recordType).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
               </option>
@@ -104,22 +129,24 @@ export function FilterBar({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        <Chip
-          label="All clusters"
-          active={filters.cluster === null}
-          onClick={() => set({ cluster: null })}
-        />
-        {CLUSTERS.map((c) => (
+      {recordType === "supplier" ? (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <Chip
-            key={c}
-            label={c}
-            count={clusterCounts[c] ?? 0}
-            active={filters.cluster === c}
-            onClick={() => set({ cluster: filters.cluster === c ? null : c })}
+            label="All clusters"
+            active={filters.cluster === null}
+            onClick={() => set({ cluster: null })}
           />
-        ))}
-      </div>
+          {CLUSTERS.map((c) => (
+            <Chip
+              key={c}
+              label={c}
+              count={clusterCounts[c] ?? 0}
+              active={filters.cluster === c}
+              onClick={() => set({ cluster: filters.cluster === c ? null : c })}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

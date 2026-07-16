@@ -3,10 +3,15 @@
  * (data/suppliers.csv) and verify the known totals:
  *
  *   100 suppliers · ranks 50 Gold / 46 Silver / 3 Bronze / 1 unranked
- *   pipeline 96 Not Contacted / 2 Contacted / 2 Pending Reply
+ *   pipeline (spec ladder, D3 mapping): 1 Sourced / 95 Qualified / 4 Contacted
  *   clusters 33/18/11/7/7/4/4/16
  *
- * Idempotent: wipes and re-seeds supplier data on every run.
+ * Stage mapping mirrors scripts/migrate-stages.ts so a re-seed
+ * reproduces the migrated state: ranked "not contacted" rows enter at
+ * QUALIFIED, unranked at SOURCED, "pending reply" → CONTACTED with a
+ * follow-up next action, and every row keeps a legacy:* tag.
+ *
+ * Idempotent: wipes and re-seeds record data on every run.
  * Run with: npx prisma db seed   (or: npm run db:seed)
  */
 import "dotenv/config";
@@ -15,9 +20,9 @@ import { join } from "node:path";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { parseSupplierCsv } from "../src/lib/csv";
+import { parseSupplierCsv, type ParsedSupplier } from "../src/lib/csv";
 import { assignCluster } from "../src/lib/clusters";
-import { CLUSTERS, STAGES } from "../src/lib/domain";
+import { CLUSTERS, SUPPLIER_STAGES } from "../src/lib/domain";
 
 const url = process.env.DATABASE_URL ?? "file:./dev.db";
 const adapter = url.startsWith("file:")
@@ -28,7 +33,7 @@ const prisma = new PrismaClient({ adapter });
 const EXPECTED = {
   total: 100,
   ranks: { Gold: 50, Silver: 46, Bronze: 3, unranked: 1 },
-  stages: { NOT_CONTACTED: 96, CONTACTED: 2, PENDING_REPLY: 2 },
+  stages: { SOURCED: 1, QUALIFIED: 95, CONTACTED: 4 },
   clusters: {
     "Tractor/Skid Attachments": 33,
     "Livestock Handling": 18,
@@ -41,6 +46,17 @@ const EXPECTED = {
   } as Record<string, number>,
 };
 
+/** The legacy:* tag from the sheet's raw status text (D3 mapping). */
+function legacyTag(s: ParsedSupplier): string {
+  const raw = (s.rawStatus ?? "not contacted")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_");
+  return `legacy:${raw}`;
+}
+
+const FOLLOW_UP_ACTION = "Follow up — application sent, awaiting reply";
+
 async function main() {
   const csvPath = join(__dirname, "..", "data", "suppliers.csv");
   const text = readFileSync(csvPath, "utf-8");
@@ -49,12 +65,16 @@ async function main() {
   console.log(`Parsed ${parsed.length} suppliers from ${csvPath}`);
 
   await prisma.interaction.deleteMany();
-  await prisma.supplier.deleteMany();
+  await prisma.crmRecord.deleteMany();
 
+  let seq = 0;
   for (const s of parsed) {
+    seq += 1;
     const cluster = s.cluster ?? assignCluster(s.name, s.niche);
-    await prisma.supplier.create({
+    await prisma.crmRecord.create({
       data: {
+        recordId: `FDS-SUP-${String(seq).padStart(4, "0")}`,
+        type: "supplier",
         name: s.name,
         niche: s.niche,
         cluster,
@@ -65,15 +85,18 @@ async function main() {
         mainContact: s.mainContact,
         email: s.email,
         phone: s.phone,
-        stage: s.stage,
-        nextAction: s.nextAction,
+        status: s.status,
+        tags: JSON.stringify([legacyTag(s)]),
+        nextAction:
+          s.nextAction ??
+          (legacyTag(s) === "legacy:PENDING_REPLY" ? FOLLOW_UP_ACTION : null),
         notes: s.notes,
         source: "FDS Supplier Outreach sheet",
         // Real outreach activity from the sheet becomes the first
         // interaction log entry.
         interactions: s.activityNote
           ? {
-              create: [{ type: "note", body: s.activityNote }],
+              create: [{ type: "note", actor: "you", body: s.activityNote }],
             }
           : undefined,
       },
@@ -83,7 +106,7 @@ async function main() {
   await prisma.healthCheck.create({ data: { note: "seeded" } });
 
   // ---- verify totals ----
-  const all = await prisma.supplier.findMany();
+  const all = await prisma.crmRecord.findMany();
   const count = (fn: (s: (typeof all)[number]) => boolean) =>
     all.filter(fn).length;
 
@@ -94,7 +117,7 @@ async function main() {
     unranked: count((s) => !s.rank),
   };
   const stageCounts = Object.fromEntries(
-    STAGES.map((st) => [st.id, count((s) => s.stage === st.id)]),
+    SUPPLIER_STAGES.map((st) => [st.id, count((s) => s.status === st.id)]),
   );
   const clusterCounts = Object.fromEntries(
     CLUSTERS.map((c) => [c, count((s) => s.cluster === c)]),
@@ -132,7 +155,9 @@ async function main() {
     }
     process.exitCode = 1;
   } else {
-    console.log("\n✔ Seed verified: 100 suppliers, 50/46/3/1 ranks, 96/2/2 pipeline, clusters 33/18/11/7/7/4/4/16");
+    console.log(
+      "\n✔ Seed verified: 100 suppliers, 50/46/3/1 ranks, 1/95/4 pipeline (Sourced/Qualified/Contacted), clusters 33/18/11/7/7/4/4/16",
+    );
   }
 }
 

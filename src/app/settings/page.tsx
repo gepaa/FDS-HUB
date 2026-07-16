@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const [supplierCount, interactionCount] = await Promise.all([
-    prisma.supplier.count(),
+    prisma.crmRecord.count(),
     prisma.interaction.count(),
   ]);
   const isSqlite = env.DATABASE_URL.startsWith("file:");

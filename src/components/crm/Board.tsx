@@ -11,31 +11,39 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { STAGES, type StageId, type SupplierDTO } from "@/lib/domain";
+import {
+  stagesFor,
+  type RecordDTO,
+  type RecordType,
+  type StageId,
+} from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import { useSound } from "@/hooks/useSound";
-import { SupplierCard } from "@/components/crm/SupplierCard";
+import { RecordCard } from "@/components/crm/RecordCard";
 
 interface BoardProps {
-  suppliers: SupplierDTO[];
+  records: RecordDTO[];
+  recordType: RecordType;
   onMoveStage: (id: string, stage: StageId) => void;
   onSelect: (id: string) => void;
 }
 
+type Stage = { id: string; label: string; color: string };
+
 function Column({
   stage,
-  suppliers,
+  records,
   onSelect,
 }: {
-  stage: (typeof STAGES)[number];
-  suppliers: SupplierDTO[];
+  stage: Stage;
+  records: RecordDTO[];
   onSelect: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   return (
     <section
-      aria-label={`${stage.label} — ${suppliers.length} suppliers`}
-      className="flex w-72 shrink-0 flex-col"
+      aria-label={`${stage.label} — ${records.length} records`}
+      className="flex w-64 shrink-0 flex-col"
     >
       <header className="flex items-center gap-2 px-1.5 pb-2">
         <span
@@ -46,7 +54,7 @@ function Column({
         <h3 className="text-xs font-semibold tracking-wide text-ink uppercase">
           {stage.label}
         </h3>
-        <span className="num text-xs text-muted">{suppliers.length}</span>
+        <span className="num text-xs text-muted">{records.length}</span>
       </header>
       <div
         ref={setNodeRef}
@@ -55,12 +63,12 @@ function Column({
           isOver && "border-[var(--accent)] bg-[var(--accent-soft)]",
         )}
       >
-        {suppliers.map((s) => (
-          <SupplierCard key={s.id} supplier={s} onSelect={onSelect} />
+        {records.map((r) => (
+          <RecordCard key={r.id} record={r} onSelect={onSelect} />
         ))}
-        {suppliers.length === 0 ? (
+        {records.length === 0 ? (
           <p className="px-2 py-6 text-center text-xs text-muted">
-            Drop suppliers here
+            Drop records here
           </p>
         ) : null}
       </div>
@@ -68,27 +76,26 @@ function Column({
   );
 }
 
-/** Kanban view — drag cards across pipeline stages. */
-export function Board({ suppliers, onMoveStage, onSelect }: BoardProps) {
+/** Kanban view — drag cards across the pipeline for the active record type. */
+export function Board({ records, recordType, onMoveStage, onSelect }: BoardProps) {
   const { sound } = useSound();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const stages = stagesFor(recordType);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
 
   const byStage = useMemo(() => {
-    const map = new Map<StageId, SupplierDTO[]>(
-      STAGES.map((s) => [s.id, []]),
-    );
-    for (const s of suppliers) {
-      map.get(s.stage)?.push(s);
+    const map = new Map<string, RecordDTO[]>(stages.map((s) => [s.id, []]));
+    for (const r of records) {
+      map.get(r.status)?.push(r);
     }
     return map;
-  }, [suppliers]);
+  }, [records, stages]);
 
   const active = activeId
-    ? (suppliers.find((s) => s.id === activeId) ?? null)
+    ? (records.find((r) => r.id === activeId) ?? null)
     : null;
 
   const onDragStart = (e: DragStartEvent) => {
@@ -100,12 +107,12 @@ export function Board({ suppliers, onMoveStage, onSelect }: BoardProps) {
     setActiveId(null);
     const overId = e.over?.id;
     if (!overId) return;
-    const supplier = suppliers.find((s) => s.id === e.active.id);
-    if (!supplier) return;
+    const record = records.find((r) => r.id === e.active.id);
+    if (!record) return;
     const target = overId as StageId;
-    if (STAGES.some((st) => st.id === target) && supplier.stage !== target) {
+    if (stages.some((st) => st.id === target) && record.status !== target) {
       sound("drop");
-      onMoveStage(supplier.id, target);
+      onMoveStage(record.id, target);
     }
   };
 
@@ -117,18 +124,18 @@ export function Board({ suppliers, onMoveStage, onSelect }: BoardProps) {
       onDragCancel={() => setActiveId(null)}
     >
       <div className="flex max-h-[calc(100dvh-22rem)] min-h-[24rem] gap-3 overflow-x-auto pb-2">
-        {STAGES.map((stage) => (
+        {stages.map((stage) => (
           <Column
             key={stage.id}
             stage={stage}
-            suppliers={byStage.get(stage.id) ?? []}
+            records={byStage.get(stage.id) ?? []}
             onSelect={onSelect}
           />
         ))}
       </div>
       <DragOverlay dropAnimation={{ duration: 220 }}>
         {active ? (
-          <SupplierCard supplier={active} onSelect={() => {}} overlay />
+          <RecordCard record={active} onSelect={() => {}} overlay />
         ) : null}
       </DragOverlay>
     </DndContext>

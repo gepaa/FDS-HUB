@@ -3,14 +3,14 @@
 import { useRef, useState } from "react";
 import { FileUp, Upload } from "lucide-react";
 import { parseSupplierCsv, type ParsedSupplier } from "@/lib/csv";
-import type { SupplierDTO } from "@/lib/domain";
+import type { RecordDTO } from "@/lib/domain";
 import { Modal } from "@/components/kit/Modal";
 import { Button } from "@/components/kit/Button";
 
 interface ImportModalProps {
   open: boolean;
   onClose: () => void;
-  existing: SupplierDTO[];
+  existing: RecordDTO[];
   onImport: (rows: ParsedSupplier[]) => Promise<void>;
 }
 

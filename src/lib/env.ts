@@ -28,6 +28,10 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
 
+  // ---- HQ engine: bearer token for the Claude agent's API access ----
+  // (docs/FDS_HQ_Decisions.md D4 — the agent↔app audit choke-point)
+  AGENT_API_KEY: z.string().optional(),
+
   // ---- Stage 7: auth ----
   AUTH_SECRET: z.string().optional(),
 

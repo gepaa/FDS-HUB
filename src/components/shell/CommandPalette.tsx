@@ -60,7 +60,7 @@ export function CommandPalette({
     setQuery("");
     setHighlight(0);
     const t = window.setTimeout(() => inputRef.current?.focus(), 30);
-    fetch("/api/suppliers")
+    fetch("/api/records?type=supplier")
       .then((r) => (r.ok ? r.json() : []))
       .then((data: SupplierHit[]) =>
         setSuppliers(

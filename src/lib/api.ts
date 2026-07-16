@@ -1,4 +1,4 @@
-import type { SupplierDTO, InteractionType } from "@/lib/domain";
+import type { RecordDTO, InteractionType } from "@/lib/domain";
 
 /** Client-side fetch helpers for the CRM API. Throw on failure. */
 
@@ -22,38 +22,43 @@ const json = (body: unknown): RequestInit => ({
 });
 
 export const api = {
-  createSupplier: (data: object) =>
-    fetch("/api/suppliers", { method: "POST", ...json(data) }).then((r) =>
-      handle<SupplierDTO>(r),
+  listRecords: (type?: "supplier" | "lead") =>
+    fetch(`/api/records${type ? `?type=${type}` : ""}`).then((r) =>
+      handle<RecordDTO[]>(r),
     ),
 
-  updateSupplier: (id: string, data: object) =>
-    fetch(`/api/suppliers/${id}`, { method: "PATCH", ...json(data) }).then(
-      (r) => handle<SupplierDTO>(r),
+  createRecord: (data: object) =>
+    fetch("/api/records", { method: "POST", ...json(data) }).then((r) =>
+      handle<RecordDTO>(r),
     ),
 
-  deleteSupplier: (id: string) =>
-    fetch(`/api/suppliers/${id}`, { method: "DELETE" }).then((r) =>
+  updateRecord: (id: string, data: object) =>
+    fetch(`/api/records/${id}`, { method: "PATCH", ...json(data) }).then((r) =>
+      handle<RecordDTO>(r),
+    ),
+
+  deleteRecord: (id: string) =>
+    fetch(`/api/records/${id}`, { method: "DELETE" }).then((r) =>
       handle<{ ok: boolean }>(r),
     ),
 
   logInteraction: (
-    supplierId: string,
+    recordId: string,
     data: { type: InteractionType; body: string; date?: string },
   ) =>
-    fetch(`/api/suppliers/${supplierId}/interactions`, {
+    fetch(`/api/records/${recordId}/interactions`, {
       method: "POST",
       ...json(data),
-    }).then((r) => handle<SupplierDTO>(r)),
+    }).then((r) => handle<RecordDTO>(r)),
 
   deleteInteraction: (id: string) =>
     fetch(`/api/interactions/${id}`, { method: "DELETE" }).then((r) =>
       handle<{ ok: boolean }>(r),
     ),
 
-  importSuppliers: (suppliers: unknown[]) =>
-    fetch("/api/suppliers/import", {
+  importRecords: (records: unknown[]) =>
+    fetch("/api/records/import", {
       method: "POST",
-      ...json({ suppliers }),
+      ...json({ records }),
     }).then((r) => handle<{ ok: boolean; created: number; updated: number }>(r)),
 };

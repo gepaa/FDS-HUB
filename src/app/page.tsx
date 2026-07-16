@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getIntegrations } from "@/lib/integrations";
-import { needsFollowUp, STAGES } from "@/lib/domain";
+import { needsFollowUp, SUPPLIER_STAGES as STAGES } from "@/lib/domain";
 import { shortDate } from "@/lib/utils";
 import { StatTile } from "@/components/kit/StatTile";
 import { StatusPill } from "@/components/kit/StatusPill";
@@ -21,7 +21,8 @@ import { PipelineBar } from "@/components/dashboard/PipelineBar";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const suppliers = await prisma.supplier.findMany({
+  const suppliers = await prisma.crmRecord.findMany({
+    where: { type: "supplier" },
     orderBy: { name: "asc" },
   });
   const integrations = getIntegrations();
@@ -29,12 +30,12 @@ export default async function DashboardPage() {
   const stageCounts: Record<string, number> = {};
   for (const st of STAGES) stageCounts[st.id] = 0;
   for (const s of suppliers) {
-    stageCounts[s.stage] = (stageCounts[s.stage] ?? 0) + 1;
+    stageCounts[s.status] = (stageCounts[s.status] ?? 0) + 1;
   }
 
   const followUps = suppliers
     .filter((s) =>
-      needsFollowUp({ nextActionDate: s.nextActionDate, stage: s.stage }),
+      needsFollowUp({ nextActionDate: s.nextActionDate, status: s.status }),
     )
     .sort(
       (a, b) =>
@@ -42,7 +43,7 @@ export default async function DashboardPage() {
     );
 
   const goldCount = suppliers.filter((s) => s.rank === "Gold").length;
-  const pendingReply = stageCounts["PENDING_REPLY"] ?? 0;
+  const contacted = stageCounts["CONTACTED"] ?? 0;
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -81,9 +82,9 @@ export default async function DashboardPage() {
           tone={followUps.length > 0 ? "amber" : "default"}
         />
         <StatTile
-          label="Pending reply"
-          value={pendingReply}
-          sub="applications in flight"
+          label="Contacted"
+          value={contacted}
+          sub="outreach in flight"
           icon={MessagesSquare}
         />
         <StatTile

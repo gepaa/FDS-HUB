@@ -1,4 +1,4 @@
-import { STAGES } from "@/lib/domain";
+import { SUPPLIER_STAGES as STAGES } from "@/lib/domain";
 
 /**
  * Pipeline distribution strip: one stacked bar, 2px surface gaps

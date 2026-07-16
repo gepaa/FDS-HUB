@@ -1,81 +1,83 @@
-import type { SupplierDTO, InteractionDTO, StageId, InteractionType } from "@/lib/domain";
-
-type SupplierRecord = {
-  id: string;
-  name: string;
-  niche: string | null;
-  cluster: string;
-  bestSeller: string | null;
-  rank: string | null;
-  websiteUrl: string | null;
-  dealerAppUrl: string | null;
-  mainContact: string | null;
-  email: string | null;
-  phone: string | null;
-  stage: string;
-  mapPolicy: string | null;
-  dropship: boolean | null;
-  freightModel: string | null;
-  leadTime: string | null;
-  warranty: string | null;
-  lastContactDate: Date | null;
-  nextAction: string | null;
-  nextActionDate: Date | null;
-  notes: string | null;
-  source: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  interactions?: InteractionRecord[];
-};
-
-type InteractionRecord = {
-  id: string;
-  supplierId: string;
-  date: Date;
-  type: string;
-  body: string;
-};
+import type {
+  RecordDTO,
+  InteractionDTO,
+  StageId,
+  InteractionType,
+  RecordType,
+  Owner,
+  Priority,
+  Actor,
+} from "@/lib/domain";
+import type { CrmRecord, Interaction } from "@/generated/prisma/client";
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
-export function toInteractionDTO(i: InteractionRecord): InteractionDTO {
+const jsonList = (s: string): string[] => {
+  try {
+    const v = JSON.parse(s);
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+};
+
+export function toInteractionDTO(i: Interaction): InteractionDTO {
   return {
     id: i.id,
-    supplierId: i.supplierId,
+    recordId: i.recordId,
     date: i.date.toISOString(),
     type: i.type as InteractionType,
     body: i.body,
+    actor: i.actor as Actor,
   };
 }
 
-/** Prisma supplier (+interactions) → JSON-safe DTO for the client. */
-export function toSupplierDTO(s: SupplierRecord): SupplierDTO {
+/** Prisma record (+interactions) → JSON-safe DTO for the client. */
+export function toRecordDTO(
+  r: CrmRecord & { interactions?: Interaction[] },
+): RecordDTO {
   return {
-    id: s.id,
-    name: s.name,
-    niche: s.niche,
-    cluster: s.cluster,
-    bestSeller: s.bestSeller,
-    rank: s.rank,
-    websiteUrl: s.websiteUrl,
-    dealerAppUrl: s.dealerAppUrl,
-    mainContact: s.mainContact,
-    email: s.email,
-    phone: s.phone,
-    stage: s.stage as StageId,
-    mapPolicy: s.mapPolicy,
-    dropship: s.dropship,
-    freightModel: s.freightModel,
-    leadTime: s.leadTime,
-    warranty: s.warranty,
-    lastContactDate: iso(s.lastContactDate),
-    nextAction: s.nextAction,
-    nextActionDate: iso(s.nextActionDate),
-    notes: s.notes,
-    source: s.source,
-    createdAt: s.createdAt.toISOString(),
-    updatedAt: s.updatedAt.toISOString(),
-    interactions: (s.interactions ?? [])
+    id: r.id,
+    recordId: r.recordId,
+    type: r.type as RecordType,
+    name: r.name,
+    company: r.company,
+    niche: r.niche,
+    cluster: r.cluster,
+    bestSeller: r.bestSeller,
+    rank: r.rank,
+    websiteUrl: r.websiteUrl,
+    dealerAppUrl: r.dealerAppUrl,
+    mainContact: r.mainContact,
+    email: r.email,
+    phone: r.phone,
+    status: r.status as StageId,
+    owner: r.owner as Owner,
+    priority: (r.priority as Priority | null) ?? null,
+    contextSummary: r.contextSummary,
+    tags: jsonList(r.tags),
+    linkedThread: r.linkedThread,
+    linkedShopifyId: r.linkedShopifyId,
+    mapPolicy: r.mapPolicy,
+    dropship: r.dropship,
+    freightModel: r.freightModel,
+    leadTime: r.leadTime,
+    warranty: r.warranty,
+    productCategories: jsonList(r.productCategories),
+    dealerProgram: r.dealerProgram,
+    mediaPermission: r.mediaPermission,
+    authorizationStatus: r.authorizationStatus,
+    productInterest: r.productInterest,
+    intent: r.intent,
+    quoteAmount: r.quoteAmount,
+    lastContactDate: iso(r.lastContactDate),
+    nextAction: r.nextAction,
+    nextActionDate: iso(r.nextActionDate),
+    notes: r.notes,
+    source: r.source,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+    interactions: (r.interactions ?? [])
       .slice()
       .sort((a, b) => b.date.getTime() - a.date.getTime())
       .map(toInteractionDTO),
