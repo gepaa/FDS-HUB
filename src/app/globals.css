@@ -1,0 +1,295 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ================================================================
+   FDS Command Hub — liquid glass design tokens
+   Palette: agricultural green accent on deep slate, amber warnings,
+   red destructive. Dark is the default theme.
+   ================================================================ */
+
+:root {
+  /* light theme */
+  --bg0: #eef2f7;
+  --bg1: #dde6f0;
+  --panel: rgba(255, 255, 255, 0.72);
+  --panel-strong: rgba(255, 255, 255, 0.87);
+  --panel-soft: rgba(255, 255, 255, 0.42);
+  --hairline: rgba(13, 24, 36, 0.1);
+  --hairline-strong: rgba(13, 24, 36, 0.18);
+  --text: #131c26;
+  --muted: #566274;
+  --accent: #1f8a4c;
+  --accent-bright: #23a058;
+  --accent-soft: rgba(31, 138, 76, 0.12);
+  --amber: #9a6c10;
+  --amber-soft: rgba(169, 118, 20, 0.14);
+  --red: #cc3138;
+  --red-soft: rgba(210, 56, 64, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 8px 32px rgba(15, 30, 45, 0.12);
+  --orb-green: rgba(46, 158, 91, 0.2);
+  --orb-amber: rgba(217, 154, 43, 0.17);
+  --orb-blue: rgba(59, 130, 160, 0.14);
+  --ring: rgba(31, 138, 76, 0.5);
+  --rail-active: rgba(31, 138, 76, 0.1);
+  --scrollbar: rgba(13, 24, 36, 0.18);
+}
+
+.dark {
+  --bg0: #0a0e14;
+  --bg1: #111722;
+  --panel: rgba(255, 255, 255, 0.06);
+  --panel-strong: rgba(255, 255, 255, 0.1);
+  --panel-soft: rgba(255, 255, 255, 0.03);
+  --hairline: rgba(255, 255, 255, 0.12);
+  --hairline-strong: rgba(255, 255, 255, 0.22);
+  --text: #e6eaf0;
+  --muted: #8a94a6;
+  --accent: #2e9e5b;
+  --accent-bright: #3dbe72;
+  --accent-soft: rgba(46, 158, 91, 0.16);
+  --amber: #d99a2b;
+  --amber-soft: rgba(217, 154, 43, 0.14);
+  --red: #e5484d;
+  --red-soft: rgba(229, 72, 77, 0.14);
+  --glass-highlight: rgba(255, 255, 255, 0.09);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+  --orb-green: rgba(46, 158, 91, 0.14);
+  --orb-amber: rgba(217, 154, 43, 0.11);
+  --orb-blue: rgba(64, 130, 170, 0.11);
+  --ring: rgba(61, 190, 114, 0.55);
+  --rail-active: rgba(61, 190, 114, 0.12);
+  --scrollbar: rgba(255, 255, 255, 0.14);
+}
+
+@theme inline {
+  --color-panel: var(--panel);
+  --color-panel-strong: var(--panel-strong);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-bright: var(--accent-bright);
+  --color-amber: var(--amber);
+  --color-danger: var(--red);
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, system-ui,
+    "Segoe UI", Roboto, sans-serif;
+  --radius-panel: 1.25rem;
+  --radius-card: 0.875rem;
+  --radius-control: 0.625rem;
+}
+
+/* ---------------- base ---------------- */
+
+html {
+  color-scheme: dark;
+}
+html:not(.dark) {
+  color-scheme: light;
+}
+
+body {
+  color: var(--text);
+  background-color: var(--bg0);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* thin translucent scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------------- glass surfaces ---------------- */
+
+.glass {
+  background: var(--panel);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--hairline);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight);
+}
+
+.glass-strong {
+  background: var(--panel-strong);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--hairline);
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-highlight);
+}
+
+.glass-soft {
+  background: var(--panel-soft);
+  border: 1px solid var(--hairline);
+}
+
+/* press affordance: subtle scale on active */
+.press {
+  transition:
+    transform 200ms cubic-bezier(0.2, 0.8, 0.3, 1),
+    box-shadow 200ms ease-out,
+    border-color 200ms ease-out,
+    background-color 200ms ease-out;
+}
+.press:active {
+  transform: scale(0.98);
+}
+
+/* ---------------- motion ---------------- */
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-rise {
+  animation: fade-rise 320ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+/* ambient orbs — slow underwater drift */
+@keyframes orb-a {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(6vw, -8vh) scale(1.12);
+  }
+  66% {
+    transform: translate(-4vw, 6vh) scale(0.94);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+@keyframes orb-b {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  40% {
+    transform: translate(-7vw, 5vh) scale(1.08);
+  }
+  75% {
+    transform: translate(5vw, -4vh) scale(0.92);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+@keyframes orb-c {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(4vw, 7vh) scale(1.15);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* glass shimmer for skeletons */
+@keyframes shimmer {
+  0% {
+    background-position: -450px 0;
+  }
+  100% {
+    background-position: 450px 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--panel) 0%,
+    var(--panel-strong) 40%,
+    var(--panel) 80%
+  );
+  background-size: 450px 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* click ripple — a droplet hitting the glass */
+@keyframes ripple {
+  from {
+    transform: scale(0);
+    opacity: 0.35;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.ripple-ink {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    var(--glass-highlight) 0%,
+    transparent 70%
+  );
+  animation: ripple 650ms ease-out forwards;
+}
+
+/* soft pulse for live/status dots */
+@keyframes status-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--accent-soft);
+  }
+  50% {
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* numeric data always tabular */
+.num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}

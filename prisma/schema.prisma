@@ -1,0 +1,75 @@
+// FDS Command Hub schema.
+//
+// Provider note: local development runs on SQLite (zero setup). For
+// production, switch `provider` to "postgresql" and set DATABASE_URL to
+// your Neon/Vercel Postgres connection string, then run
+// `npx prisma migrate dev`. Models avoid SQLite-only or Postgres-only
+// features so the switch is mechanical. See README → "Database".
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Stage 0 health check — proves the migration pipeline works.
+model HealthCheck {
+  id        Int      @id @default(autoincrement())
+  note      String   @default("ok")
+  checkedAt DateTime @default(now())
+}
+
+// ---------------- Stage 1: CRM ----------------
+
+// Pipeline stage values (validated in app code, kept as String for
+// cross-database portability):
+// NOT_CONTACTED | CONTACTED | APPLIED | PENDING_REPLY | APPROVED | LIVE | REJECTED
+model Supplier {
+  id           String  @id @default(cuid())
+  name         String
+  niche        String?
+  cluster      String  @default("Other")
+  bestSeller   String?
+  rank         String? // Gold | Silver | Bronze | null (unranked)
+  websiteUrl   String?
+  dealerAppUrl String?
+  mainContact  String?
+  email        String?
+  phone        String?
+  stage        String  @default("NOT_CONTACTED")
+
+  mapPolicy    String?
+  dropship     Boolean?
+  freightModel String?
+  leadTime     String?
+  warranty     String?
+
+  lastContactDate DateTime?
+  nextAction      String?
+  nextActionDate  DateTime?
+  notes           String?
+  source          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  interactions Interaction[]
+
+  @@index([stage])
+  @@index([cluster])
+  @@index([nextActionDate])
+}
+
+model Interaction {
+  id         String   @id @default(cuid())
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  date       DateTime @default(now())
+  type       String // email | call | form | note
+  body       String
+
+  @@index([supplierId, date])
+}

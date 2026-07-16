@@ -1,0 +1,122 @@
+# FDS Command Hub
+
+The internal operator console for **Farmer Direct Supply** — a
+high-ticket agricultural equipment business. One liquid-glass surface
+for the supplier CRM, accounting, Shopify, tasks, comms, and calendar.
+
+Built stage-by-stage from the FDS master build spec. **Currently
+shipped: Stage 0 (foundation + design system) and Stage 1 (CRM, seeded
+with the real 100-supplier outreach list).** Stages 2–7 are scaffolded
+as honest placeholders — no integration is ever faked.
+
+## Quickstart (local)
+
+```bash
+npm install            # also runs `prisma generate`
+cp .env.example .env   # local SQLite works out of the box
+npx prisma migrate dev # create the database
+npm run db:seed        # load the real FDS supplier list + verify totals
+npm run dev            # http://localhost:3000
+```
+
+The seed imports `data/suppliers.csv` (the real Supplier Outreach
+sheet) and asserts the known totals: **100 suppliers · 50 Gold / 46
+Silver / 3 Bronze / 1 unranked · 96 Not Contacted / 2 Contacted / 2
+Pending Reply · clusters 33/18/11/7/7/4/4/16**.
+
+## Stage map
+
+| Stage | Scope | Status |
+| ----- | ----- | ------ |
+| 0 | Design system, app shell, DB pipeline, env contract, deploy config | ✅ shipped |
+| 1 | Supplier CRM — board + table, drawer, interaction log, CSV import/export, seeded | ✅ shipped |
+| 2 | Accounting — founders-only P&L, margins, CAC, tax export | placeholder |
+| 3 | Shopify Admin — analytics + customer creation | placeholder + credential seam |
+| 4 | Tasks + Comms hub (Discord, Gmail, Shopify Inbox) | placeholder + credential seams |
+| 5 | Google Calendar + agent harnesses (Claude Code / Codex) | placeholder + credential seams |
+| 6 | Unified dashboard wired to every live panel | partial (CRM live today) |
+| 7 | Auth, security hardening, Vercel go-live | pending |
+
+## Database
+
+Local dev runs **SQLite** (`DATABASE_URL="file:./dev.db"`) so a fresh
+clone works with zero setup. For production:
+
+1. Create a Postgres database (Neon or Vercel Postgres) and copy its
+   connection string.
+2. In `prisma/schema.prisma`, change `provider = "sqlite"` →
+   `provider = "postgresql"`.
+3. Set `DATABASE_URL` to the connection string (locally in `.env`, in
+   production via Vercel env vars).
+4. Recreate migrations for Postgres:
+   `rm -rf prisma/migrations && npx prisma migrate dev --name init`
+5. Seed: `npm run db:seed`.
+
+The runtime picks the right driver automatically (`file:` → SQLite
+adapter, anything else → node-postgres adapter) in `src/lib/prisma.ts`.
+
+## Deploying to Vercel
+
+1. Push this repo to GitHub and import it in Vercel (framework:
+   Next.js — auto-detected, `vercel.json` sets the build command to
+   run `prisma generate` first).
+2. Complete the Postgres switch above; put `DATABASE_URL` in
+   **Project → Settings → Environment Variables**.
+3. Run migrations against production once:
+   `DATABASE_URL="postgres://…" npx prisma migrate deploy` (and
+   `npm run db:seed` if you want the supplier list loaded).
+4. Deploy. Every later-stage credential (Shopify, Discord, Google,
+   agent tokens) is also a Vercel env var — the matching panel flips
+   from "Not connected" to live the moment its variable exists. The
+   full list ships in `.env.example`.
+
+**Never commit real secrets.** `.env` is git-ignored; `.env.example`
+is the committed contract.
+
+## Environment contract
+
+`src/lib/env.ts` validates the environment with zod at boot. Missing
+*required* config degrades to a friendly setup screen, and missing
+*optional* credentials surface as honest "Not connected" states via
+`src/lib/integrations.ts` — never a crash, never fabricated data.
+
+## Design system
+
+Apple-inspired liquid glass, dark by default:
+
+- **Tokens** live in `src/app/globals.css` (palette, blur, radii,
+  shadows, motion). Light/dark via CSS variables on `html.dark`.
+- **Kit** (`src/components/kit/`): `GlassPanel`, `GlassCard`,
+  `StatTile`, `DataTable`, `Drawer`, `Modal`, `Toast`, `StatusPill`,
+  `Chip`, `SegmentedControl`, `Button`, `Field`, `ConnectState` — used
+  for every surface.
+- **Water layer**: `AmbientBackground` drifts three light orbs under
+  the glass; buttons ripple like droplets; kanban drops *plop*.
+- **Sound**: `src/lib/sound.ts` synthesizes all UI audio with WebAudio
+  (no assets). Mute toggle in the command bar; preference persists.
+- **Motion**: 200–320ms ease-out, subtle press scale, honest to
+  `prefers-reduced-motion`.
+- Pipeline-stage colors were validated for CVD safety and contrast on
+  both themes (see `src/lib/domain.ts`).
+
+## Scripts
+
+| Command | What it does |
+| ------- | ------------ |
+| `npm run dev` | Dev server (Turbopack) |
+| `npm run build` | Production build |
+| `npm run db:migrate` | Create/apply migrations (dev) |
+| `npm run db:deploy` | Apply migrations (production) |
+| `npm run db:seed` | Re-seed from `data/suppliers.csv` + verify totals |
+| `npm run db:studio` | Prisma Studio data browser |
+
+## What the human supplies (per stage)
+
+Nothing in this list can be generated by an AI — accounts, dashboards,
+and secrets only you control:
+
+- **Stage 0**: Vercel account/project, Postgres connection string
+- **Stage 3**: Shopify custom app → `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_ADMIN_TOKEN`
+- **Stage 4**: Discord app/bot/webhook/channels; Google OAuth client (Gmail)
+- **Stage 5**: Google OAuth client (Calendar); Claude Code / Codex API tokens
+- **Stage 7**: Auth provider secrets (`AUTH_SECRET`), production env vars
