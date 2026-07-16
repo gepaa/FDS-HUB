@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FDS Operations HQ</title>
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#f4f6f4; --panel:#ffffff; --ink:#1f2a24; --muted:#697a70;
+    --line:#e2e8e2; --green:#2f6f4e; --green-soft:#e7f2eb; --green-ink:#1f513a;
+    --amber:#b6791f; --amber-soft:#fdf3e1; --red:#b23b3b; --red-soft:#fbe9e9;
+    --blue:#2f5f8a; --blue-soft:#e8f0f7; --hot:#c2410c; --shadow:0 1px 3px rgba(31,42,36,.07),0 8px 24px rgba(31,42,36,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
+  .app{display:flex;min-height:100vh}
+  /* Sidebar */
+  .side{width:216px;background:#182b22;color:#cfe0d6;padding:18px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 16px;font-weight:700;color:#fff;font-size:15px;letter-spacing:.2px}
+  .brand .logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#3d9968,#2f6f4e);display:flex;align-items:center;justify-content:center;font-size:14px}
+  .nav{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;cursor:pointer;color:#bcd0c4;font-weight:500;transition:.12s}
+  .nav:hover{background:#22392e;color:#fff}
+  .nav.active{background:#2f6f4e;color:#fff}
+  .nav .ic{width:17px;text-align:center;font-size:15px}
+  .nav .badge{margin-left:auto;background:#c2410c;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 7px}
+  .side-foot{margin-top:auto;padding:10px 8px;border-top:1px solid #2a4034;font-size:12px;color:#8fa89a}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ade80;margin-right:6px;box-shadow:0 0 0 3px rgba(74,222,128,.18)}
+  /* Main */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .top{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 26px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:5}
+  .top h1{font-size:17px;margin:0;font-weight:700}
+  .top .sub{color:var(--muted);font-size:12.5px}
+  .top .spacer{flex:1}
+  .askbar{display:flex;align-items:center;gap:8px;background:#f0f4f1;border:1px solid var(--line);border-radius:10px;padding:8px 12px;width:340px;max-width:38vw}
+  .askbar input{border:0;background:transparent;outline:0;flex:1;font-size:13px;color:var(--ink)}
+  .askbar button{border:0;background:var(--green);color:#fff;border-radius:7px;padding:5px 11px;font-weight:600;cursor:pointer;font-size:12.5px}
+  .content{padding:24px 26px 60px;max-width:1160px;width:100%}
+  .page{display:none}.page.show{display:block;animation:fade .18s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  /* Cards */
+  .grid{display:grid;gap:16px}
+  .kpis{grid-template-columns:repeat(4,1fr);margin-bottom:20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow)}
+  .kpi{padding:15px 16px}
+  .kpi .l{color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .kpi .v{font-size:27px;font-weight:750;margin-top:5px}
+  .kpi .d{font-size:12px;margin-top:3px}
+  .up{color:var(--green)}.down{color:var(--red)}
+  .sec-title{font-weight:700;font-size:15px;margin:26px 0 12px;display:flex;align-items:center;gap:9px}
+  .sec-title .pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;background:var(--green-soft);color:var(--green-ink)}
+  .row2{grid-template-columns:1.35fr .95fr}
+  .pad{padding:16px 18px}
+  .ch{font-weight:700;font-size:14px;margin:0 0 3px;display:flex;align-items:center;gap:8px}
+  .csub{color:var(--muted);font-size:12px;margin:0 0 14px}
+  /* brief list */
+  .brief{list-style:none;margin:0;padding:0}
+  .brief li{display:flex;gap:11px;padding:11px 0;border-top:1px solid var(--line)}
+  .brief li:first-child{border-top:0}
+  .bic{width:30px;height:30px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .bic.g{background:var(--green-soft)}.bic.a{background:var(--amber-soft)}.bic.b{background:var(--blue-soft)}.bic.r{background:var(--red-soft)}
+  .btxt{font-size:13px}.btxt b{font-weight:650}
+  .bmeta{color:var(--muted);font-size:11.5px;margin-top:2px}
+  /* tags/badges */
+  .badge2{font-size:11px;font-weight:650;padding:2px 8px;border-radius:20px;display:inline-block}
+  .b-hot{background:#fdece3;color:var(--hot)} .b-warm{background:var(--amber-soft);color:var(--amber)} .b-cold{background:#eef1ef;color:var(--muted)}
+  .b-green{background:var(--green-soft);color:var(--green-ink)} .b-blue{background:var(--blue-soft);color:var(--blue)} .b-red{background:var(--red-soft);color:var(--red)} .b-amber{background:var(--amber-soft);color:var(--amber)}
+  /* kanban */
+  .board{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;overflow-x:auto}
+  .col{background:#eef2ef;border-radius:11px;padding:10px;min-height:120px}
+  .col h4{margin:2px 4px 10px;font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);display:flex;justify-content:space-between}
+  .col h4 span{background:#fff;border-radius:10px;padding:0 7px;color:var(--ink);font-weight:700}
+  .lead{background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin-bottom:8px;cursor:pointer;transition:.12s;box-shadow:0 1px 2px rgba(31,42,36,.04)}
+  .lead:hover{border-color:var(--green);transform:translateY(-1px)}
+  .lead .nm{font-weight:650;font-size:12.5px}
+  .lead .co{color:var(--muted);font-size:11.5px;margin:1px 0 6px}
+  .lead .na{font-size:11.5px;color:var(--green-ink);background:var(--green-soft);border-radius:6px;padding:3px 6px;margin-top:5px}
+  .lead .rowb{display:flex;gap:5px;align-items:center;margin-top:6px;flex-wrap:wrap}
+  .owner{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:5px}
+  .owner.claude{background:#eae6fb;color:#5b4bb0}.owner.you{background:#dfeede;color:#2f6f4e}
+  /* table */
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:9px 10px;border-bottom:1px solid var(--line)}
+  td{padding:11px 10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  /* approvals */
+  .appr{border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:13px;background:var(--panel);box-shadow:var(--shadow)}
+  .appr .hd{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .appr .hd .who{font-weight:700}
+  .appr .draft{background:#f7faf8;border:1px solid var(--line);border-left:3px solid var(--green);border-radius:8px;padding:11px 13px;font-size:12.5px;color:#33433b;white-space:pre-wrap;margin:6px 0 12px}
+  .appr .acts{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{border:0;border-radius:8px;padding:7px 14px;font-weight:650;font-size:12.5px;cursor:pointer}
+  .btn.primary{background:var(--green);color:#fff}
+  .btn.ghost{background:#eef2ef;color:var(--ink)}
+  .btn.warn{background:var(--red-soft);color:var(--red)}
+  .reason{font-size:11.5px;color:var(--muted);margin-top:9px}
+  /* chat */
+  .chat{display:flex;flex-direction:column;height:min(70vh,620px)}
+  .msgs{flex:1;overflow-y:auto;padding:6px 2px;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:82%;padding:10px 13px;border-radius:13px;font-size:13px}
+  .msg.c{align-self:flex-start;background:#eef2ef;border-bottom-left-radius:4px}
+  .msg.u{align-self:flex-end;background:var(--green);color:#fff;border-bottom-right-radius:4px}
+  .msg .nm{font-size:11px;font-weight:700;margin-bottom:3px;opacity:.8}
+  .msg.c .nm{color:var(--green-ink)}
+  .chat-in{display:flex;gap:8px;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+  .chat-in input{flex:1;border:1px solid var(--line);border-radius:9px;padding:9px 12px;outline:0;font-size:13px}
+  /* sop */
+  .sopgrid{grid-template-columns:repeat(2,1fr)}
+  .sop{padding:15px 16px;cursor:pointer;transition:.12s}
+  .sop:hover{border-color:var(--green);transform:translateY(-1px)}
+  .sop h4{margin:0 0 5px;font-size:14px;display:flex;align-items:center;gap:8px}
+  .sop p{margin:0;color:var(--muted);font-size:12.5px}
+  .sop .st{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:auto}
+  .st.done{background:var(--green-soft);color:var(--green-ink)}.st.draft{background:var(--amber-soft);color:var(--amber)}
+  /* toast */
+  #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(30px);background:#182b22;color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;transition:.25s;z-index:50;box-shadow:var(--shadow)}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .note{background:var(--blue-soft);border:1px solid #cfe0ef;border-radius:10px;padding:11px 14px;font-size:12.5px;color:#2b4a66;margin-bottom:18px}
+  .autobar{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 15px;margin-bottom:18px;box-shadow:var(--shadow)}
+  .autobar .lbl{font-weight:700;font-size:13px}
+  .seg{display:flex;background:#eef2ef;border-radius:9px;padding:3px;gap:2px}
+  .seg button{border:0;background:transparent;padding:6px 11px;border-radius:7px;font-size:12px;font-weight:650;cursor:pointer;color:var(--muted)}
+  .seg button.on{background:#fff;color:var(--green-ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.row2{grid-template-columns:1fr}.side{width:64px}.side .txt,.brand span,.side-foot{display:none}.board{grid-template-columns:repeat(2,1fr)}.sopgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="brand"><span class="logo">🌱</span><span>FDS&nbsp;HQ</span></div>
+    <div class="nav active" data-p="dash"><span class="ic">◧</span><span class="txt">Dashboard</span></div>
+    <div class="nav" data-p="crm"><span class="ic">👥</span><span class="txt">CRM Pipeline</span></div>
+    <div class="nav" data-p="appr"><span class="ic">✔︎</span><span class="txt">Approvals</span><span class="badge">4</span></div>
+    <div class="nav" data-p="tasks"><span class="ic">◈</span><span class="txt">Task Queue</span></div>
+    <div class="nav" data-p="chat"><span class="ic">💬</span><span class="txt">Claude Chat</span><span class="badge">2</span></div>
+    <div class="nav" data-p="sop"><span class="ic">📘</span><span class="txt">SOP Library</span></div>
+    <div class="side-foot"><span class="dot"></span>PM agent active<br><span style="opacity:.7">Last run: 3:12 AM · notch 0</span></div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="top">
+      <div>
+        <h1 id="ptitle">Dashboard</h1>
+        <div class="sub" id="psub">Wednesday, July 15 · Good morning, Pablo</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="askbar">
+        <span style="opacity:.5">✦</span>
+        <input id="ask" placeholder="Tell Claude what to do…">
+        <button onclick="ask()">Assign</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <section class="page show" id="dash">
+        <div class="note">🌙 <b>Overnight run complete.</b> While you slept, the PM agent researched 6 suppliers, drafted 12 outbound messages, read 3 replies, and prepped 1 call. Nothing was sent — 4 items are waiting for your one-tap approval.</div>
+        <div class="grid kpis">
+          <div class="card kpi"><div class="l">Active Leads</div><div class="v">37</div><div class="d up">▲ 5 new overnight</div></div>
+          <div class="card kpi"><div class="l">Suppliers in Pipeline</div><div class="v">21</div><div class="d up">▲ 6 sourced overnight</div></div>
+          <div class="card kpi"><div class="l">Awaiting You</div><div class="v">4</div><div class="d down">approvals + 1 call</div></div>
+          <div class="card kpi"><div class="l">Store Revenue (7d)</div><div class="v">$18.4k</div><div class="d up">▲ 12% vs prior</div></div>
+        </div>
+
+        <div class="grid row2">
+          <div class="card pad">
+            <p class="ch">🌙 This morning's brief</p>
+            <p class="csub">Written by the PM agent at 3:12 AM after the overnight run</p>
+            <ul class="brief">
+              <li><div class="bic g">📞</div><div><div class="btxt"><b>Cimarron Trailers replied — wants a call.</b> Best window Thu AM ET. Your brief is ready.</div><div class="bmeta">Supplier · FDS-SUP-004 · <a href="#" onclick="go('crm');return false">open record</a></div></div></li>
+              <li><div class="bic a">📄</div><div><div class="btxt"><b>Baumalight asked for your reseller certificate.</b> Reply drafted — just attach the doc & approve.</div><div class="bmeta">Supplier · FDS-SUP-007 · <a href="#" onclick="go('appr');return false">in approvals</a></div></div></li>
+              <li><div class="bic b">✉️</div><div><div class="btxt"><b>12 outbound messages drafted & queued.</b> 6 first-contact, 4 follow-ups, 2 replies. Awaiting approval.</div><div class="bmeta">Batch · <a href="#" onclick="go('appr');return false">review queue</a></div></div></li>
+              <li><div class="bic r">✕</div><div><div class="btxt"><b>Titan Implements declined</b> (no dropship program). Logged; 2 alternates sourced to replace them.</div><div class="bmeta">Supplier · FDS-SUP-011</div></div></li>
+              <li><div class="bic g">💬</div><div><div class="btxt"><b>New store lead:</b> quote request on a 105gal 3-pt sprayer. Reply drafted, follow-up cadence set.</div><div class="bmeta">Lead · FDS-LEAD-0192 · $2,900 est.</div></div></li>
+            </ul>
+          </div>
+          <div class="card pad">
+            <p class="ch">⚡ What needs you</p>
+            <p class="csub">Only the things a human has to do</p>
+            <ul class="brief">
+              <li><div class="bic g">📞</div><div><div class="btxt"><b>Call Cimarron</b> — dealer terms</div><div class="bmeta">brief ready · Thu AM ET</div></div></li>
+              <li><div class="bic a">📎</div><div><div class="btxt"><b>Attach reseller cert</b> for Baumalight</div><div class="bmeta">reply pre-drafted</div></div></li>
+              <li><div class="bic b">✔︎</div><div><div class="btxt"><b>Approve 12 queued messages</b></div><div class="bmeta">~2 min, one tap each</div></div></li>
+              <li><div class="bic a">💲</div><div><div class="btxt"><b>Set price</b> on the sprayer quote</div><div class="bmeta">FDS-LEAD-0192</div></div></li>
+            </ul>
+            <button class="btn primary" style="width:100%;margin-top:12px" onclick="go('appr')">Go to approvals →</button>
+          </div>
+        </div>
+
+        <div class="sec-title">🤖 Agents at work <span class="pill">live</span></div>
+        <div class="grid" style="grid-template-columns:repeat(3,1fr)">
+          <div class="card pad"><p class="ch" style="font-size:13px">Supplier Outreach</p><p class="csub" style="margin:0">Drafting follow-ups for 4 quiet threads</p><div style="margin-top:9px"><span class="badge2 b-blue">running</span></div></div>
+          <div class="card pad"><p class="ch" style="font-size:13px">Lead / CRM</p><p class="csub" style="margin:0">Watching Gmail + Shopify for new leads</p><div style="margin-top:9px"><span class="badge2 b-blue">watching</span></div></div>
+          <div class="card pad"><p class="ch" style="font-size:13px">Catalog Content</p><p class="csub" style="margin:0">Idle — waiting on Cimarron authorization</p><div style="margin-top:9px"><span class="badge2 b-cold">idle</span></div></div>
+        </div>
+      </section>
+
+      <!-- CRM -->
+      <section class="page" id="crm">
+        <div class="autobar">
+          <span class="lbl">Supplier pipeline</span>
+          <span class="csub" style="margin:0">Drag-and-drop in the live build · sample data shown</span>
+          <div class="spacer" style="flex:1"></div>
+          <div class="seg"><button class="on">Suppliers</button><button onclick="toast('Lead pipeline — same board, inbound stages')">Leads</button></div>
+        </div>
+        <div class="board">
+          <div class="col"><h4>Sourced <span>6</span></h4>
+            <div class="lead" onclick="toast('Opens full record: context, thread history, next action')"><div class="nm">Everything Attachments</div><div class="co">Skid-steer grapples</div><div class="rowb"><span class="badge2 b-cold">cold</span><span class="owner claude">CLAUDE</span></div><div class="na">→ Qualify against checklist</div></div>
+            <div class="lead"><div class="nm">Wicked Root Grapple</div><div class="co">Tree pullers</div><div class="rowb"><span class="badge2 b-cold">cold</span><span class="owner claude">CLAUDE</span></div><div class="na">→ Qualify against checklist</div></div>
+            <div class="lead"><div class="nm">+ 4 more sourced</div><div class="co">overnight</div></div>
+          </div>
+          <div class="col"><h4>Contacted <span>5</span></h4>
+            <div class="lead"><div class="nm">Baumalight</div><div class="co">Brush cutters, PTO gen.</div><div class="rowb"><span class="badge2 b-warm">warm</span><span class="owner you">YOU</span></div><div class="na">→ Attach reseller cert</div></div>
+            <div class="lead"><div class="nm">Wallenstein</div><div class="co">Wood chippers</div><div class="rowb"><span class="badge2 b-warm">warm</span><span class="owner claude">CLAUDE</span></div><div class="na">→ Follow-up #2 (day 4)</div></div>
+            <div class="lead"><div class="nm">+ 3 more</div><div class="co">follow-ups queued</div></div>
+          </div>
+          <div class="col"><h4>Replied <span>4</span></h4>
+            <div class="lead"><div class="nm">Braber Equipment</div><div class="co">3-pt implements</div><div class="rowb"><span class="badge2 b-hot">hot</span><span class="owner claude">CLAUDE</span></div><div class="na">→ Response drafted (safe-lane)</div></div>
+            <div class="lead"><div class="nm">Tar River</div><div class="co">Hay & tillage</div><div class="rowb"><span class="badge2 b-warm">warm</span><span class="owner claude">CLAUDE</span></div><div class="na">→ Answer freight question</div></div>
+          </div>
+          <div class="col"><h4>In Conversation <span>3</span></h4>
+            <div class="lead"><div class="nm">Cimarron Trailers</div><div class="co">Livestock trailers</div><div class="rowb"><span class="badge2 b-hot">hot</span><span class="owner you">YOU</span></div><div class="na">→ 📞 Call scheduled Thu</div></div>
+            <div class="lead"><div class="nm">Rankin Equipment</div><div class="co">Land grading</div><div class="rowb"><span class="badge2 b-warm">warm</span><span class="owner claude">CLAUDE</span></div><div class="na">→ Move toward a call</div></div>
+          </div>
+          <div class="col"><h4>Authorized ✓ <span>3</span></h4>
+            <div class="lead" style="border-left:3px solid var(--green)"><div class="nm">Field Tuff</div><div class="co">Attachments · 40 SKUs</div><div class="rowb"><span class="badge2 b-green">dealer</span></div><div class="na">→ Catalog import queued</div></div>
+            <div class="lead" style="border-left:3px solid var(--green)"><div class="nm">Titan (West)</div><div class="co">Pallet forks · 18 SKUs</div><div class="rowb"><span class="badge2 b-green">dealer</span></div><div class="na">→ Live on store</div></div>
+          </div>
+        </div>
+
+        <div class="sec-title">Records detail</div>
+        <div class="card">
+          <table>
+            <thead><tr><th>ID</th><th>Company</th><th>Status</th><th>Context</th><th>Next action</th><th>Owner</th><th>Priority</th></tr></thead>
+            <tbody>
+              <tr><td>SUP-004</td><td><b>Cimarron Trailers</b></td><td><span class="badge2 b-blue">In Conversation</span></td><td>Livestock trailer mfr. Open to dropship, wants to discuss dealer margins by phone.</td><td>📞 Call Thu AM — brief ready</td><td><span class="owner you">YOU</span></td><td><span class="badge2 b-hot">hot</span></td></tr>
+              <tr><td>SUP-007</td><td><b>Baumalight</b></td><td><span class="badge2 b-amber">Contacted</span></td><td>Brush cutters & PTO generators. Interested; asked for reseller certificate before proceeding.</td><td>Attach cert to drafted reply</td><td><span class="owner you">YOU</span></td><td><span class="badge2 b-warm">warm</span></td></tr>
+              <tr><td>SUP-002</td><td><b>Braber Equipment</b></td><td><span class="badge2 b-green">Replied</span></td><td>3-pt implements distributor. Positive first reply, asked about our volume.</td><td>Send drafted response (safe-lane)</td><td><span class="owner claude">CLAUDE</span></td><td><span class="badge2 b-hot">hot</span></td></tr>
+              <tr><td>LEAD-0192</td><td><b>R. Handley (buyer)</b></td><td><span class="badge2 b-amber">Quote Requested</span></td><td>Wants a 105gal 3-pt sprayer for a 60-acre pasture. Ready to buy, comparing 2 options.</td><td>💲 You set price → Claude sends quote</td><td><span class="owner you">YOU</span></td><td><span class="badge2 b-hot">hot</span></td></tr>
+              <tr><td>LEAD-0188</td><td><b>M. Ortiz (buyer)</b></td><td><span class="badge2 b-blue">Engaged</span></td><td>Asked about greenhouse polycarbonate thickness. Browsing, needs education.</td><td>Answer + buyer guide (drafted)</td><td><span class="owner claude">CLAUDE</span></td><td><span class="badge2 b-warm">warm</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- APPROVALS -->
+      <section class="page" id="appr">
+        <div class="note">🔒 <b>The gate.</b> Everything Claude wants to send leaves through here. Up to this point — research, drafting, follow-up logic, CRM updates — all happened autonomously overnight. You just wave the outbound through. Currently at <b>autonomy notch 0 (draft-only)</b>.</div>
+
+        <div class="appr">
+          <div class="hd"><span class="badge2 b-amber">FIRST CONTACT</span><span class="who">→ Everything Attachments</span><span style="flex:1"></span><span class="csub" style="margin:0">drafted 3:04 AM</span></div>
+          <div class="draft">Subject: Dealer inquiry — Farming Direct Supply (high-ticket ag)
+
+Hi there — I run Farming Direct Supply, an online retailer focused on high-ticket agricultural equipment (tractor attachments, skid-steer grapples, greenhouses). We're building out our skid-steer attachment category and your grapples are exactly the caliber we list.
+
+Do you offer a dealer or drop-ship program? Happy to send our reseller details. Would a quick call this week work?
+
+Best,
+Pablo — Farming Direct Supply</div>
+          <div class="acts">
+            <button class="btn primary" onclick="approve(this,'Sent · logged to CRM · follow-up scheduled')">Approve &amp; send</button>
+            <button class="btn ghost" onclick="toast('Opens inline editor')">Edit</button>
+            <button class="btn ghost" onclick="toast('Rescheduled +1 day')">Snooze</button>
+            <button class="btn warn" onclick="approve(this,'Rejected · Claude will not send')">Reject</button>
+          </div>
+          <div class="reason">Why Claude queued this: new cold supplier → first contact is a hard-stop at notch 0. Passed qualify checklist (dropship ✓, freight ✓, warranty ✓).</div>
+        </div>
+
+        <div class="appr">
+          <div class="hd"><span class="badge2 b-blue">REPLY</span><span class="who">→ Baumalight (reseller cert request)</span><span style="flex:1"></span><span class="csub" style="margin:0">needs your file</span></div>
+          <div class="draft">Hi — thanks for the quick reply. Attached is our reseller certificate and business details. We'd love to carry your brush cutters and PTO generators. Let me know what else you need to set us up as a dealer, and whether a call this week is easier.
+
+[ ⚠ attach: FDS_Reseller_Certificate.pdf ]</div>
+          <div class="acts">
+            <button class="btn primary" onclick="toast('Opens file picker to attach the cert')">Attach cert &amp; send</button>
+            <button class="btn ghost" onclick="toast('Opens inline editor')">Edit</button>
+          </div>
+          <div class="reason">Why Claude queued this: reply is safe-lane, BUT it needs a document only you can attach. Flagged for you.</div>
+        </div>
+
+        <div class="appr">
+          <div class="hd"><span class="badge2 b-green">FOLLOW-UP ×4</span><span class="who">→ Quiet threads (day 4–6)</span><span style="flex:1"></span><span class="csub" style="margin:0">batch</span></div>
+          <div class="draft">4 gentle follow-up nudges to suppliers who haven't replied (Wallenstein, Tar River, + 2). Each references the original message, adds one new value point, and offers a call. Human-paced send over the morning.</div>
+          <div class="acts">
+            <button class="btn primary" onclick="approve(this,'4 follow-ups approved · sending human-paced')">Approve all 4</button>
+            <button class="btn ghost" onclick="toast('Expands to review each individually')">Review each</button>
+          </div>
+          <div class="reason">At notch 1, in-thread follow-ups like these would auto-send without this step.</div>
+        </div>
+
+        <div class="appr">
+          <div class="hd"><span class="badge2 b-red">HARD STOP · PRICE</span><span class="who">→ Sprayer quote (FDS-LEAD-0192)</span><span style="flex:1"></span><span class="csub" style="margin:0">your decision</span></div>
+          <div class="draft">Claude assembled everything for the quote: product (105gal 3-pt sprayer), buyer context (60-acre pasture, ready to buy), supplier cost, freight estimate, and a suggested margin band. It will NOT set the price — that's yours. Enter a number and Claude drafts + sends the quote email.</div>
+          <div class="acts">
+            <button class="btn primary" onclick="toast('Opens quote builder — you set the number')">Set price &amp; quote</button>
+            <button class="btn ghost" onclick="toast('Shows cost + freight breakdown')">See cost breakdown</button>
+          </div>
+          <div class="reason">Pricing never auto-sends at any notch. This is always your call.</div>
+        </div>
+      </section>
+
+      <!-- TASKS -->
+      <section class="page" id="tasks">
+        <div class="note">◈ Assign work in plain language up top ("recruit 15 tractor-implement suppliers this week"). The PM breaks it into worker jobs and runs them overnight.</div>
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px">
+          <div class="card pad">
+            <p class="ch">▶ Running now</p>
+            <div class="lead" style="cursor:default"><div class="nm">Recruit 15 tractor-implement suppliers</div><div class="co">assigned by you · 10:04 PM</div><div class="na">6 sourced · 6 first-contacts drafted · 4 follow-ups queued</div></div>
+            <div class="lead" style="cursor:default"><div class="nm">Follow up with all contacted suppliers</div><div class="co">recurring · nightly</div><div class="na">4 follow-ups drafted, awaiting approval</div></div>
+            <div class="lead" style="cursor:default"><div class="nm">Watch inbox for new leads</div><div class="co">standing task · Lead agent</div><div class="na">2 new leads captured overnight</div></div>
+          </div>
+          <div class="card pad">
+            <p class="ch">✓ Done overnight</p>
+            <div class="lead" style="cursor:default;border-left:3px solid var(--green)"><div class="nm">Read &amp; classify 3 supplier replies</div><div class="co">Outreach agent</div><div class="na">1 call-ready, 1 doc-needed, 1 declined</div></div>
+            <div class="lead" style="cursor:default;border-left:3px solid var(--green)"><div class="nm">Build Cimarron call brief</div><div class="co">Outreach agent</div><div class="na">context + talking points + target margin ready</div></div>
+            <div class="lead" style="cursor:default;border-left:3px solid var(--green)"><div class="nm">Source 2 alternates for Titan (declined)</div><div class="co">Sourcing agent</div><div class="na">Everything Attachments + Wicked Root added</div></div>
+          </div>
+        </div>
+        <div class="sec-title">Suggested by Claude</div>
+        <div class="card pad">
+          <p class="csub" style="margin:0 0 10px">Based on your pipeline, the PM suggests these — approve to queue for tonight:</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn ghost" onclick="toast('Queued for tonight')">+ Draft buyer guide for greenhouse category (SEO)</button>
+            <button class="btn ghost" onclick="toast('Queued for tonight')">+ Re-engage 3 On-Hold suppliers</button>
+            <button class="btn ghost" onclick="toast('Queued for tonight')">+ Prep Field Tuff catalog import (Stage 1)</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- CHAT -->
+      <section class="page" id="chat">
+        <div class="card pad chat">
+          <div class="msgs" id="msgs">
+            <div class="msg c"><div class="nm">Claude · PM agent</div>Good morning, Pablo. Overnight run finished at 3:12 AM. Headline: <b>Cimarron replied and wants a call</b> — I've built your brief (their context, dealer-margin talking points, and a target of 22–28% off MSRP based on comparable deals). Best window looks like Thursday AM ET.</div>
+            <div class="msg c"><div class="nm">Claude · PM agent</div>I also drafted 12 outbound messages and queued them for approval, and I need one thing from you: <b>Baumalight asked for our reseller certificate</b> — I drafted the reply but can't attach the file. Can you drop it in the approvals card when you get a sec?</div>
+            <div class="msg u"><div class="nm">You</div>Nice. Go ahead and prioritize the trailer suppliers this week, that's our best category right now.</div>
+            <div class="msg c"><div class="nm">Claude · PM agent</div>On it. I'll weight tonight's sourcing toward livestock-trailer and hauling brands, and push the Cimarron relationship since it's furthest along. Want me to also start the Stage-1 catalog prep for Field Tuff so their 40 SKUs are import-ready the moment authorization lands?</div>
+          </div>
+          <div class="chat-in">
+            <input id="cin" placeholder="Message Claude…" onkeydown="if(event.key==='Enter')send()">
+            <button class="btn primary" onclick="send()">Send</button>
+          </div>
+        </div>
+        <div class="note" style="margin-top:16px">🔔 This is also where Claude pings you overnight when something is hot or it needs a decision — so you can help the moment it matters, not just in the morning.</div>
+      </section>
+
+      <!-- SOP -->
+      <section class="page" id="sop">
+        <div class="note">📘 The SOP library is <b>how Claude knows how to do everything</b>. Each worker agent follows one. Two already exist from your business docs; the rest get drafted from them.</div>
+        <div class="grid sopgrid">
+          <div class="card sop" onclick="toast('Opens the full Product Import SOP')"><h4>Product Import SOP <span class="st done">live</span></h4><p>Raw supplier catalog → finished, metafield-complete import file → store build. Your two-stage gold standard.</p></div>
+          <div class="card sop" onclick="toast('Opens the Ahrefs Analysis SOP')"><h4>Ahrefs Analysis SOP <span class="st done">live</span></h4><p>Keyword & priority research feeding SEO and product targeting.</p></div>
+          <div class="card sop" onclick="toast('Draft ready to generate from your docs')"><h4>Supplier Sourcing &amp; Qualification <span class="st draft">to draft</span></h4><p>Where to find high-ticket ag suppliers and the qualify checklist: freight, warranty, MAP, dealer program.</p></div>
+          <div class="card sop" onclick="toast('Draft ready to generate from your docs')"><h4>Supplier Outreach SOP <span class="st draft">to draft</span></h4><p>Message sequence, tone rules, follow-up cadence, when to escalate to a call, what never auto-sends.</p></div>
+          <div class="card sop" onclick="toast('Draft ready to generate from your docs')"><h4>Lead Handling SOP <span class="st draft">to draft</span></h4><p>When a store lead lands: classify, respond, capture, push to a call, follow up.</p></div>
+          <div class="card sop" onclick="toast('Draft ready to generate from your docs')"><h4>Quote &amp; Call-Prep SOP <span class="st draft">to draft</span></h4><p>The brief Claude assembles before you call anyone: context, history, talking points, target number.</p></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+  const titles={dash:['Dashboard','Wednesday, July 15 · Good morning, Pablo'],crm:['CRM Pipeline','Leads + suppliers · live status & next action'],appr:['Approvals','The gate — one tap to send'],tasks:['Task Queue','Assign work · the PM runs it'],chat:['Claude Chat','Updates, notifications & asks'],sop:['SOP Library','How Claude does everything']};
+  function go(p){
+    document.querySelectorAll('.page').forEach(x=>x.classList.remove('show'));
+    document.getElementById(p).classList.add('show');
+    document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.p===p));
+    document.getElementById('ptitle').textContent=titles[p][0];
+    document.getElementById('psub').textContent=titles[p][1];
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>go(n.dataset.p));
+  let tt;
+  function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2400);}
+  function approve(btn,msg){const card=btn.closest('.appr');card.style.transition='.3s';card.style.opacity='.35';btn.closest('.acts').innerHTML='<span class="badge2 b-green">✓ '+msg+'</span>';toast(msg);}
+  function ask(){const v=document.getElementById('ask').value.trim();if(!v){toast('Type a task for Claude first');return;}document.getElementById('ask').value='';go('tasks');toast('Assigned: “'+v+'” — PM is planning it');}
+  function send(){const i=document.getElementById('cin'),v=i.value.trim();if(!v)return;const m=document.getElementById('msgs');const u=document.createElement('div');u.className='msg u';u.innerHTML='<div class="nm">You</div>'+v;m.appendChild(u);i.value='';m.scrollTop=m.scrollHeight;setTimeout(()=>{const c=document.createElement('div');c.className='msg c';c.innerHTML='<div class="nm">Claude · PM agent</div>Got it — I\'ll fold that into tonight\'s run and update the task queue. (Demo reply; the live HQ connects this to the real agent.)';m.appendChild(c);m.scrollTop=m.scrollHeight;},700);}
+</script>
+</body>
+</html>
