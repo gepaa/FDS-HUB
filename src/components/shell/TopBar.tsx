@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -26,6 +26,11 @@ export function TopBar({ integrations }: { integrations: IntegrationSummary[] })
   const { sound, muted, toggleMuted } = useSound();
   const { resolvedTheme, setTheme } = useTheme();
   const router = useRouter();
+  // next-themes resolves the real theme only on the client; render the
+  // toggle theme-agnostically until mounted to avoid a hydration mismatch.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const isDark = !mounted || resolvedTheme === "dark";
 
   const connectedCount = integrations.filter((i) => i.connected).length;
 
@@ -87,22 +92,15 @@ export function TopBar({ integrations }: { integrations: IntegrationSummary[] })
           <Button
             variant="subtle"
             size="sm"
-            aria-label={
-              resolvedTheme === "dark"
-                ? "Switch to light theme"
-                : "Switch to dark theme"
-            }
+            aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
             silent
+            suppressHydrationWarning
             onClick={() => {
               sound("toggle");
-              setTheme(resolvedTheme === "dark" ? "light" : "dark");
+              setTheme(isDark ? "light" : "dark");
             }}
           >
-            {resolvedTheme === "dark" ? (
-              <Sun size={16} aria-hidden />
-            ) : (
-              <Moon size={16} aria-hidden />
-            )}
+            {isDark ? <Sun size={16} aria-hidden /> : <Moon size={16} aria-hidden />}
           </Button>
         </div>
       </header>

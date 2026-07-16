@@ -11,7 +11,8 @@ This directory is the business's memory (Blueprint §3, Layer 1). **Any Claude s
 5. [FDS_Operations_Log.md](FDS_Operations_Log.md) — store operation context: business frame, locked architecture, theme workflow (`pull → dev → push → publish`).
 6. [FDS_Product_Import_SOP.md](FDS_Product_Import_SOP.md) — the two-stage catalog pipeline + the `custom.*` metafield contract (gold standard SOP).
 7. [FDS_Product_Answer_Desk_SOP.md](FDS_Product_Answer_Desk_SOP.md) — the sales co-pilot: verified store data only, confidence flags, no guessing.
-8. [sops/](sops/) — the operational SOP library (worker-agent playbooks).
+8. [sops/SOP_Library_Index.md](sops/SOP_Library_Index.md) — the SOP library map (which SOP runs per engine).
+9. [sops/](sops/) — the playbooks themselves, incl. [Hub_Agent_Interface.md](sops/Hub_Agent_Interface.md) (how agents read/write this app).
 
 ## Reference
 

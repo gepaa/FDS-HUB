@@ -591,20 +591,21 @@ export function RecordDrawer({
               Activity log
             </h3>
             <div className="flex items-start gap-2">
-              <Select
-                value={logType}
-                onChange={(e) => setLogType(e.target.value as InteractionType)}
-                className="w-28"
-                aria-label="Interaction type"
-              >
-                {INTERACTION_TYPES.filter(
-                  (t) => t.id !== "system" && t.id !== "status",
-                ).map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </Select>
+              <div className="w-28 shrink-0">
+                <Select
+                  value={logType}
+                  onChange={(e) => setLogType(e.target.value as InteractionType)}
+                  aria-label="Interaction type"
+                >
+                  {INTERACTION_TYPES.filter(
+                    (t) => t.id !== "system" && t.id !== "status",
+                  ).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
               <Input
                 value={logBody}
                 onChange={(e) => setLogBody(e.target.value)}

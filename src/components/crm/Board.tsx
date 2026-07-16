@@ -118,6 +118,9 @@ export function Board({ records, recordType, onMoveStage, onSelect }: BoardProps
 
   return (
     <DndContext
+      // Stable id keeps dnd-kit's SSR-generated aria attributes in sync
+      // with the client (avoids the DndDescribedBy hydration mismatch).
+      id="crm-board"
       sensors={sensors}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}

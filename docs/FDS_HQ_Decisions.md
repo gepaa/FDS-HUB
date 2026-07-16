@@ -43,3 +43,9 @@ _Last updated: 2026-07-15 (build takeover session)._
 ## Workspace history worth remembering
 
 - 2026-07-15: the original workspace was damaged by an incomplete sync — git objects, all `src/app/api/**` route handlers, `SupplierDrawer.tsx`, and parts of `node_modules` were lost. Git was re-initialized (`main`, baseline commit `3b082ec`); `dev.db.backup` (100 suppliers + 27 interactions) is deliberately committed as the data safety net. The deleted routes/drawer were rebuilt against the reconciled schema, not restored.
+
+## Addendum (2026-07-16) — authoritative SOP library adopted
+
+- Pablo delivered the full course-grounded SOP set from his planning session; they **replaced** the interim drafts in `docs/sops/` verbatim (SOP_Supplier_Sourcing_and_Qualification, SOP_Supplier_Outreach, SOP_Lead_Handling, SOP_Quote_and_Call_Prep, SOP_Nightly_Run, SOP_Store_Build_and_Theme_Change, SOP_Google_Ads_Research [parked], SOP_Library_Index). The hub-specific mechanics live in `Hub_Agent_Interface.md`.
+- **Rules now binding that the interim drafts lacked:** outreach order is **Bronze/Silver before Gold** (suppliers research the store; warm up on lower stakes); **MAP enforcement is a hard dealbreaker** for sourcing; **demo-product timing** — never display a brand's demo products while contacting that brand; prerequisites (store fullness, legitimacy assets) checked before any first contact.
+- Outstanding upgrades Pablo will supply when ready: his real pitch deck + outreach template (upgrades the Outreach scaffold), his pricing rule (locks Quote & Call-Prep §4), team routing (Lead Handling §6).

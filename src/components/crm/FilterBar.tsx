@@ -62,50 +62,53 @@ export function FilterBar({
         </div>
 
         {recordType === "supplier" ? (
-          <Select
-            value={filters.rank ?? ""}
-            onChange={(e) => set({ rank: e.target.value || null })}
-            aria-label="Filter by rank"
-            className="w-32"
-          >
-            <option value="">All ranks</option>
-            {RANKS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-            <option value="unranked">Unranked</option>
-          </Select>
+          <div className="w-32 shrink-0">
+            <Select
+              value={filters.rank ?? ""}
+              onChange={(e) => set({ rank: e.target.value || null })}
+              aria-label="Filter by rank"
+            >
+              <option value="">All ranks</option>
+              {RANKS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+              <option value="unranked">Unranked</option>
+            </Select>
+          </div>
         ) : null}
 
-        <Select
-          value={filters.owner ?? ""}
-          onChange={(e) => set({ owner: e.target.value || null })}
-          aria-label="Filter by owner"
-          className="w-36"
-        >
-          <option value="">All owners</option>
-          {OWNERS.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
-
-        {view === "table" ? (
+        <div className="w-36 shrink-0">
           <Select
-            value={filters.stage ?? ""}
-            onChange={(e) => set({ stage: e.target.value || null })}
-            aria-label="Filter by stage"
-            className="w-44"
+            value={filters.owner ?? ""}
+            onChange={(e) => set({ owner: e.target.value || null })}
+            aria-label="Filter by owner"
           >
-            <option value="">All stages</option>
-            {stagesFor(recordType).map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
+            <option value="">All owners</option>
+            {OWNERS.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
               </option>
             ))}
           </Select>
+        </div>
+
+        {view === "table" ? (
+          <div className="w-44 shrink-0">
+            <Select
+              value={filters.stage ?? ""}
+              onChange={(e) => set({ stage: e.target.value || null })}
+              aria-label="Filter by stage"
+            >
+              <option value="">All stages</option>
+              {stagesFor(recordType).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </div>
         ) : null}
 
         <Chip
