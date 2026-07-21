@@ -33,6 +33,21 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
 
+  // ---- HQ brain: the in-app AI assistant (src/lib/agent) ----
+  // AI_PROVIDER picks the backend; AI_API_KEY is its credential.
+  //   groq       — free tier, fast (console.groq.com)  ← recommended free
+  //   gemini     — Google AI Studio free tier (aistudio.google.com)
+  //   openrouter — free-model marketplace (openrouter.ai)
+  //   anthropic  — Claude via ANTHROPIC_API_KEY (paid, best quality)
+  //   custom     — any OpenAI-compatible endpoint via AI_BASE_URL
+  // Unset → the chat shows an honest "Not connected" setup screen.
+  AI_PROVIDER: z
+    .enum(["groq", "gemini", "openrouter", "anthropic", "custom"])
+    .optional(),
+  AI_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().optional(), // override the provider default
+  AI_BASE_URL: z.string().optional(), // only for AI_PROVIDER=custom
+
   // ---- HQ engine: bearer token for the Claude agent's API access ----
   // (docs/FDS_HQ_Decisions.md D4 — the agent↔app audit choke-point)
   AGENT_API_KEY: z.string().optional(),

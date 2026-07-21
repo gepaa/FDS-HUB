@@ -19,6 +19,19 @@ export interface IntegrationStatus {
 export function getIntegrations(): IntegrationStatus[] {
   return [
     {
+      id: "ai",
+      name: "AI Assistant",
+      description:
+        "The hub's brain — powers the Assistant chat and task runs. Free lane: Groq or Google AI Studio key; or Anthropic for Claude.",
+      stage: 5,
+      connected: Boolean(
+        env.AI_API_KEY || (env.AI_PROVIDER === "anthropic" && env.ANTHROPIC_API_KEY) ||
+          (!env.AI_PROVIDER && env.ANTHROPIC_API_KEY),
+      ),
+      requiredEnv: ["AI_PROVIDER", "AI_API_KEY"],
+      setupUrl: "https://console.groq.com/keys",
+    },
+    {
       id: "database",
       name: "Postgres Database",
       description:

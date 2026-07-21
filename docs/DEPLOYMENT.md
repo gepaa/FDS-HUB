@@ -12,10 +12,11 @@
 
 1. **Get the connection string.** supabase.com → project `fds-hub-prod` → **Connect** → copy the **Transaction pooler** URI (port 6543 — required for serverless). If you don't know the database password, Settings → Database → **Reset database password** first.
 2. **Import the repo.** vercel.com → team `gepaas-projects` → **Add New → Project** → import `gepaa/FDS-HUB`. Framework auto-detects; `vercel.json` sets the build command.
-3. **Add the three env vars.** Project → Settings → Environment Variables:
+3. **Add the env vars.** Project → Settings → Environment Variables:
    - `DATABASE_URL` — the Supabase transaction-pooler URI from step 1.
    - `AGENT_API_KEY` — copy from the local `.env` (keep local + Vercel identical).
    - `TEAM_PASSWORD` — pick the shared team password (username defaults to `fds`; `TEAM_USER` overrides).
+   - `AI_PROVIDER` + `AI_API_KEY` — the in-app AI assistant's brain (2026-07-21). Free lane: `AI_PROVIDER=groq` with a key from console.groq.com/keys, or `AI_PROVIDER=gemini` with a key from aistudio.google.com/apikey. Paid lane: `AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY`. Optional `AI_MODEL` overrides the provider default. Unset → the Assistant page shows setup instructions instead of a chat.
 4. **Deploy / Redeploy.** The app comes up already full of data.
 
 ## Verification (agent, after deploy)

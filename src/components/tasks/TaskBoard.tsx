@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Play, Plus, ThumbsUp, Trash2, X } from "lucide-react";
+import { Check, Loader2, Play, Plus, ThumbsUp, Trash2, X } from "lucide-react";
 import { Button } from "@/components/kit/Button";
 import { Input } from "@/components/kit/Field";
 import { GlassCard } from "@/components/kit/GlassCard";
@@ -25,10 +25,14 @@ function TaskCard({
   task,
   onPatch,
   onDelete,
+  onRun,
+  running,
 }: {
   task: TaskDTO;
   onPatch: (id: string, patch: object) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onRun: (id: string) => Promise<void>;
+  running: boolean;
 }) {
   return (
     <GlassCard className="flex flex-col gap-1.5 p-3">
@@ -81,6 +85,27 @@ function TaskCard({
             Done
           </Button>
         ) : null}
+        {task.status === "queued" && task.assignee === "claude" ? (
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={running}
+            onClick={() => onRun(task.id)}
+          >
+            {running ? (
+              <Loader2 size={12} className="animate-spin" aria-hidden />
+            ) : (
+              <Play size={12} aria-hidden />
+            )}
+            {running ? "Working…" : "Run now"}
+          </Button>
+        ) : null}
+        {task.status === "running" ? (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-accent-bright">
+            <Loader2 size={12} className="animate-spin" aria-hidden />
+            Agent working…
+          </span>
+        ) : null}
         {task.status === "queued" ? (
           <Button variant="ghost" size="sm" onClick={() => onDelete(task.id)}>
             <Trash2 size={12} aria-hidden />
@@ -97,6 +122,26 @@ export function TaskBoard({ initial }: { initial: TaskDTO[] }) {
   const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
+  const [runningId, setRunningId] = useState<string | null>(null);
+
+  const run = async (id: string) => {
+    setRunningId(id);
+    router.refresh();
+    try {
+      const res = await fetch(`/api/tasks/${id}/run`, { method: "POST" });
+      if (!res.ok) throw new Error((await res.json()).error ?? "run failed");
+      toast({ title: "Task done — result is on the card", tone: "success" });
+    } catch (e) {
+      toast({
+        title: "Agent run failed",
+        description: e instanceof Error ? e.message : undefined,
+        tone: "error",
+      });
+    } finally {
+      setRunningId(null);
+      router.refresh();
+    }
+  };
 
   const add = async () => {
     const t = title.trim();
@@ -172,12 +217,19 @@ export function TaskBoard({ initial }: { initial: TaskDTO[] }) {
             {active.length})
           </h2>
           {active.map((t) => (
-            <TaskCard key={t.id} task={t} onPatch={patch} onDelete={remove} />
+            <TaskCard
+              key={t.id}
+              task={t}
+              onPatch={patch}
+              onDelete={remove}
+              onRun={run}
+              running={runningId === t.id}
+            />
           ))}
           {active.length === 0 ? (
             <p className="text-xs text-muted">
-              Nothing queued. Assign work above — it runs on the PM&apos;s next
-              cycle.
+              Nothing queued. Assign work above, then hit Run now — the agent
+              works it immediately.
             </p>
           ) : null}
         </section>
@@ -187,7 +239,14 @@ export function TaskBoard({ initial }: { initial: TaskDTO[] }) {
             Suggested by Claude ({suggested.length})
           </h2>
           {suggested.map((t) => (
-            <TaskCard key={t.id} task={t} onPatch={patch} onDelete={remove} />
+            <TaskCard
+              key={t.id}
+              task={t}
+              onPatch={patch}
+              onDelete={remove}
+              onRun={run}
+              running={runningId === t.id}
+            />
           ))}
           {suggested.length === 0 ? (
             <p className="text-xs text-muted">
@@ -202,7 +261,14 @@ export function TaskBoard({ initial }: { initial: TaskDTO[] }) {
                 Recently finished
               </h2>
               {done.map((t) => (
-                <TaskCard key={t.id} task={t} onPatch={patch} onDelete={remove} />
+                <TaskCard
+              key={t.id}
+              task={t}
+              onPatch={patch}
+              onDelete={remove}
+              onRun={run}
+              running={runningId === t.id}
+            />
               ))}
             </>
           ) : null}

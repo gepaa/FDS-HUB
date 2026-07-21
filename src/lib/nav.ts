@@ -61,10 +61,10 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/chat",
-    label: "Chat",
+    label: "Assistant",
     icon: MessagesSquare,
     section: "hq",
-    description: "Briefs, pings, and run logs from the agent.",
+    description: "Your AI employee — ask anything; it executes in the hub.",
   },
   {
     href: "/sops",

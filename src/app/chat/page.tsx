@@ -1,38 +1,45 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
-import { ChatFeed, type MessageDTO } from "@/components/chat/ChatFeed";
+import { resolveProviderConfig } from "@/lib/agent/provider";
+import {
+  ChatWorkspace,
+  type ChatSessionDTO,
+} from "@/components/chat/ChatWorkspace";
 
-export const metadata: Metadata = { title: "Chat" };
+export const metadata: Metadata = { title: "Assistant" };
 export const dynamic = "force-dynamic";
 
 export default async function ChatPage() {
-  const messages = await prisma.agentMessage.findMany({
-    orderBy: { createdAt: "asc" },
-    take: 500,
+  const cfg = resolveProviderConfig();
+  const sessions = await prisma.chatSession.findMany({
+    orderBy: { updatedAt: "desc" },
+    take: 50,
+    include: { _count: { select: { messages: true } } },
   });
 
-  const dtos: MessageDTO[] = messages.map((m) => ({
-    id: m.id,
-    role: m.role,
-    kind: m.kind,
-    title: m.title,
-    body: m.body,
-    createdAt: m.createdAt.toISOString(),
+  const dtos: ChatSessionDTO[] = sessions.map((s) => ({
+    id: s.id,
+    title: s.title,
+    updatedAt: s.updatedAt.toISOString(),
+    messageCount: s._count.messages,
   }));
 
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="font-display text-3xl text-ink">
-          Chat
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted">
-          Updates and asks from the PM agent. Notes you leave here are read at
-          the start of its next run. For a live working session, open Claude
-          directly — this feed is the async channel.
-        </p>
+    <div className="flex flex-col gap-4">
+      <header className="flex items-end justify-between">
+        <div>
+          <h1 className="font-display text-3xl text-ink">Assistant</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted">
+            Your AI employee. It holds the full business context and executes
+            inside the hub — CRM updates, tasks, research, drafts for approval.
+          </p>
+        </div>
       </header>
-      <ChatFeed initial={dtos} />
+      <ChatWorkspace
+        initialSessions={dtos}
+        aiConfigured={cfg !== null}
+        modelLabel={cfg ? `${cfg.provider} · ${cfg.model}` : null}
+      />
     </div>
   );
 }

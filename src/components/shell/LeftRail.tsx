@@ -100,7 +100,7 @@ export function LeftRail() {
       {/* desktop sidebar */}
       <nav
         aria-label="Primary"
-        className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-hairline bg-[var(--bg1)] md:flex"
+        className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-hairline bg-[color-mix(in_srgb,var(--bg1)_62%,transparent)] backdrop-blur-2xl backdrop-saturate-150 md:flex"
       >
         <div className="flex h-full flex-col px-3 pt-5 pb-4">
           <Link
@@ -163,7 +163,7 @@ export function LeftRail() {
       {/* mobile bottom bar — the HQ surfaces only */}
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 overflow-x-auto border-t border-hairline bg-[var(--panel)] px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 overflow-x-auto border-t border-hairline bg-[var(--panel)] px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur-2xl backdrop-saturate-150 md:hidden"
       >
         {[...hq, ...utility].map((item) => {
           const active = isActive(item.href);

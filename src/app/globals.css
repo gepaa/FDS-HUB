@@ -3,66 +3,81 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ================================================================
-   FDS Operations HQ — design tokens
-   Warm, quiet, structured. Ivory paper surfaces in light, warm
-   charcoal in dark; one terracotta accent, green reserved for
-   success/live states. Solid surfaces, hairline borders, soft
-   shadows — no blur, no ornament.
+   FDS Command Hub — design tokens
+   Apple-glass: cool translucent panels floating over a soft blue/red
+   ambient gradient, hairline borders with an inner top highlight,
+   generous blur. Blue is the primary accent (actions, focus, active
+   states); red is the signature counter-accent (branding gradients,
+   alerts); green stays reserved for success/live.
    ================================================================ */
 
 :root {
   /* light theme (default) */
-  --bg0: #faf9f5;
-  --bg1: #f2f0e9;
-  --panel: #ffffff;
-  --panel-strong: #ffffff;
-  --panel-soft: rgba(82, 74, 60, 0.055);
-  --hairline: rgba(63, 58, 48, 0.12);
-  --hairline-strong: rgba(63, 58, 48, 0.24);
-  --text: #292824;
-  --muted: #6f6a5f;
-  --accent: #b8512d;
-  --accent-bright: #aa4a26;
+  --bg0: #eef2f9;
+  --bg1: #e7ecf6;
+  --panel: rgba(255, 255, 255, 0.66);
+  --panel-strong: rgba(255, 255, 255, 0.85);
+  --panel-soft: rgba(38, 60, 110, 0.06);
+  --hairline: rgba(28, 42, 78, 0.12);
+  --hairline-strong: rgba(28, 42, 78, 0.24);
+  --text: #1b2334;
+  --muted: #5c6678;
+  --accent: #0a6cff;
+  --accent-bright: #075ad9;
   --accent-fg: #ffffff;
-  --accent-soft: rgba(184, 81, 45, 0.1);
+  --accent-soft: rgba(10, 108, 255, 0.1);
   --green: #1f7a45;
   --green-soft: rgba(31, 122, 69, 0.11);
   --amber: #966208;
   --amber-soft: rgba(150, 98, 8, 0.12);
-  --red: #c53030;
-  --red-soft: rgba(197, 48, 48, 0.1);
-  --shadow-card: 0 1px 2px rgba(40, 35, 25, 0.04), 0 2px 10px rgba(40, 35, 25, 0.05);
-  --shadow-raised: 0 4px 12px rgba(40, 35, 25, 0.08), 0 16px 48px rgba(40, 35, 25, 0.12);
-  --ring: rgba(201, 100, 66, 0.45);
-  --rail-active: rgba(196, 93, 60, 0.09);
-  --scrollbar: rgba(63, 58, 48, 0.2);
+  --red: #e02d3c;
+  --red-soft: rgba(224, 45, 60, 0.1);
+  --shadow-card:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 1px 2px rgba(20, 35, 70, 0.05), 0 4px 16px rgba(20, 35, 70, 0.07);
+  --shadow-raised:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 4px 12px rgba(20, 35, 70, 0.1), 0 20px 56px rgba(20, 35, 70, 0.16);
+  --ring: rgba(10, 108, 255, 0.45);
+  --rail-active: rgba(10, 108, 255, 0.1);
+  --scrollbar: rgba(28, 42, 78, 0.2);
+  --glass-blur: 24px;
+  --glow-blue: rgba(10, 108, 255, 0.14);
+  --glow-red: rgba(224, 45, 60, 0.1);
 }
 
 .dark {
-  --bg0: #262624;
-  --bg1: #21201e;
-  --panel: #2f2e2b;
-  --panel-strong: #383733;
-  --panel-soft: rgba(255, 255, 255, 0.05);
-  --hairline: rgba(255, 255, 255, 0.1);
-  --hairline-strong: rgba(255, 255, 255, 0.22);
-  --text: #edeae4;
-  --muted: #a5a196;
-  --accent: #d97757;
-  --accent-bright: #e29273;
-  --accent-fg: #201812;
-  --accent-soft: rgba(217, 119, 87, 0.14);
+  --bg0: #0b101c;
+  --bg1: #090d16;
+  --panel: rgba(24, 31, 48, 0.62);
+  --panel-strong: rgba(31, 39, 59, 0.85);
+  --panel-soft: rgba(160, 190, 255, 0.06);
+  --hairline: rgba(170, 195, 255, 0.12);
+  --hairline-strong: rgba(170, 195, 255, 0.26);
+  --text: #e9edf6;
+  --muted: #97a1b6;
+  --accent: #3d82ff;
+  --accent-bright: #6ea3ff;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(61, 130, 255, 0.16);
   --green: #46b479;
   --green-soft: rgba(70, 180, 121, 0.14);
   --amber: #d9a03d;
   --amber-soft: rgba(217, 160, 61, 0.13);
-  --red: #e5484d;
-  --red-soft: rgba(229, 72, 77, 0.14);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 2px 10px rgba(0, 0, 0, 0.16);
-  --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.3), 0 16px 48px rgba(0, 0, 0, 0.4);
-  --ring: rgba(226, 146, 115, 0.5);
-  --rail-active: rgba(217, 119, 87, 0.12);
-  --scrollbar: rgba(255, 255, 255, 0.14);
+  --red: #ff4d57;
+  --red-soft: rgba(255, 77, 87, 0.14);
+  --shadow-card:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.25), 0 4px 18px rgba(0, 0, 0, 0.28);
+  --shadow-raised:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.35), 0 20px 56px rgba(0, 0, 0, 0.5);
+  --ring: rgba(110, 163, 255, 0.55);
+  --rail-active: rgba(61, 130, 255, 0.14);
+  --scrollbar: rgba(170, 195, 255, 0.16);
+  --glass-blur: 26px;
+  --glow-blue: rgba(46, 108, 255, 0.17);
+  --glow-red: rgba(255, 77, 87, 0.1);
 }
 
 @theme inline {
@@ -81,8 +96,8 @@
     -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, system-ui,
     "Segoe UI", Roboto, sans-serif;
   --font-display:
-    ui-serif, "Iowan Old Style", "Palatino", Georgia, "Times New Roman",
-    serif;
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, system-ui,
+    "Segoe UI", Roboto, sans-serif;
   --radius-panel: 1rem;
   --radius-card: 0.75rem;
   --radius-control: 0.5rem;
@@ -100,6 +115,13 @@ html.dark {
 body {
   color: var(--text);
   background-color: var(--bg0);
+  /* The ambient glass field: soft blue + red glows the panels blur over. */
+  background-image:
+    radial-gradient(48rem 34rem at 12% -6%, var(--glow-blue), transparent 60%),
+    radial-gradient(44rem 32rem at 96% 12%, var(--glow-red), transparent 62%),
+    radial-gradient(40rem 40rem at 55% 110%, var(--glow-blue), transparent 65%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
+  background-attachment: fixed;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -135,31 +157,35 @@ body {
 }
 
 /* ---------------- display type ----------------
-   Page titles wear the serif; everything else stays sans. */
+   Page titles wear the tight SF-style display cut. */
 
 .font-display {
   font-family: var(--font-display);
-  letter-spacing: -0.01em;
-  font-weight: 600;
+  letter-spacing: -0.025em;
+  font-weight: 700;
 }
 
-/* ---------------- surfaces ---------------- */
+/* ---------------- surfaces (the glass) ---------------- */
 
-/* Card surface: solid panel, hairline border, soft shadow. */
+/* Card surface: translucent glass panel — blur, hairline, inner highlight. */
 .surface {
   background: var(--panel);
   border: 1px solid var(--hairline);
   box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.7);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.7);
 }
 
-/* Raised surface for layered UI: drawers, dialogs, popovers. */
+/* Raised glass for layered UI: drawers, dialogs, popovers. */
 .surface-raised {
   background: var(--panel-strong);
   border: 1px solid var(--hairline);
   box-shadow: var(--shadow-raised);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.7);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.7);
 }
 
-/* Recessed fill: inputs, wells, hover states. No shadow. */
+/* Recessed fill: inputs, wells, hover states. No shadow, no blur. */
 .surface-muted {
   background: var(--panel-soft);
   border: 1px solid var(--hairline);

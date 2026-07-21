@@ -162,6 +162,35 @@ model HqTask {
   @@index([status, createdAt])
 }
 
+// ---------------- AI Chat (the live agent surface) ----------------
+//
+// Claude-style working sessions with the in-app agent. Each session is
+// a conversation; tool activity is stored as a display log on the
+// assistant message (the agent re-reads live data each turn, so tool
+// exchanges are not replayed as model context).
+model ChatSession {
+  id        String        @id @default(cuid())
+  title     String        @default("New chat")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+
+  @@index([updatedAt])
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String // user | assistant
+  content   String
+  toolLog   String      @default("[]") // JSON array of {tool, summary} for the UI
+  model     String? // which model produced an assistant turn
+  createdAt DateTime    @default(now())
+
+  @@index([sessionId, createdAt])
+}
+
 // ---------------- Agent messages (the thin Chat surface) ----------------
 //
 // Morning briefs, pings, and run logs from the PM land here; Pablo's
