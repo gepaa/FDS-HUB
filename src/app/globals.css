@@ -156,6 +156,16 @@ body {
   background: transparent;
 }
 
+/* Full-screen surfaces (the call cockpit) reuse the ambient field. */
+.cockpit-bg {
+  background-color: var(--bg0);
+  background-image:
+    radial-gradient(48rem 34rem at 12% -6%, var(--glow-blue), transparent 60%),
+    radial-gradient(44rem 32rem at 96% 12%, var(--glow-red), transparent 62%),
+    radial-gradient(40rem 40rem at 55% 110%, var(--glow-blue), transparent 65%),
+    linear-gradient(180deg, var(--bg0), var(--bg1));
+}
+
 /* ---------------- display type ----------------
    Page titles wear the tight SF-style display cut. */
 

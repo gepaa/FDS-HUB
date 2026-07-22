@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, Send, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { ExternalLink, PhoneCall, Send, Trash2 } from "lucide-react";
 import {
   CLUSTERS,
   INTERACTION_TYPES,
@@ -185,10 +186,19 @@ export function RecordDrawer({
       footer={
         <div className="flex items-center gap-2">
           {!creating ? (
-            <Button variant="ghost" size="sm" onClick={onDelete}>
-              <Trash2 size={13} aria-hidden />
-              Delete
-            </Button>
+            <>
+              <Link
+                href={`/cockpit/${record.id}`}
+                className="press inline-flex h-8 items-center gap-1.5 rounded-control border border-hairline bg-[var(--panel)] px-3 text-[13px] font-medium text-ink shadow-sm hover:border-[var(--hairline-strong)]"
+              >
+                <PhoneCall size={13} aria-hidden />
+                Start call
+              </Link>
+              <Button variant="ghost" size="sm" onClick={onDelete}>
+                <Trash2 size={13} aria-hidden />
+                Delete
+              </Button>
+            </>
           ) : null}
           <span className="flex-1" />
           <Button variant="ghost" size="sm" onClick={onClose}>

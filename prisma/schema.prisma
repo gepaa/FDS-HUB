@@ -101,6 +101,7 @@ model CrmRecord {
 
   interactions Interaction[]
   approvals    Approval[]
+  callSessions CallSession[]
 
   @@index([status])
   @@index([cluster])
@@ -168,6 +169,30 @@ model HqTask {
   completedAt DateTime?
 
   @@index([status, createdAt])
+}
+
+// ---------------- Live Sales Cockpit ----------------
+//
+// One row per phone call worked in the cockpit. `data` holds the
+// call-time working state (product, verifications, quote math…) and
+// `notes` the structured note stream (confirmed | suggestion | note |
+// objection). Durable outcomes are written to the CrmRecord + an
+// Interaction when the call ends; the session row keeps the full
+// audit trail of what was on screen.
+model CallSession {
+  id          String    @id @default(cuid())
+  recordId    String
+  record      CrmRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  durationSec Int?
+  outcome     String? // advancing | quote_requested | follow_up | won | nurture | lost
+  notes       String    @default("[]") // JSON: [{at, kind, text}]
+  data        String    @default("{}") // JSON: CockpitData (src/lib/cockpit.ts)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([recordId, startedAt])
 }
 
 // ---------------- AI Chat (the live agent surface) ----------------

@@ -2,7 +2,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { env } from "@/lib/env";
 import type {
   AgentToolCall,
-  AgentToolDef,
   AgentTurn,
   ModelProvider,
   ModelTurnResult,

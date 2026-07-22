@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   ListChecks,
   MessagesSquare,
+  PhoneCall,
   Plug,
   Settings,
   ShieldCheck,
@@ -51,6 +52,13 @@ export const NAV_ITEMS: NavItem[] = [
     section: "hq",
     approvalsBadge: true,
     description: "The gate — every outbound action waits here for one tap.",
+  },
+  {
+    href: "/cockpit",
+    label: "Call Cockpit",
+    icon: PhoneCall,
+    section: "hq",
+    description: "The live-call command centre — one screen per customer.",
   },
   {
     href: "/tasks",
