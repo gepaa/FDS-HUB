@@ -156,6 +156,21 @@ body {
   background: transparent;
 }
 
+/* Wide rails (CRM stage board, wide tables) hide the native
+   scrollbar and draw their own always-visible one — see
+   components/kit/ScrollRail.tsx. The OS "show scroll bars only when
+   scrolling" setting makes the native bar unreliable as an
+   affordance, and it reserves no layout space when it's an overlay. */
+.hide-native-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+.hide-native-scrollbar::-webkit-scrollbar {
+  height: 0;
+  width: 0;
+  display: none;
+}
+
 /* Full-screen surfaces (the call cockpit) reuse the ambient field. */
 .cockpit-bg {
   background-color: var(--bg0);

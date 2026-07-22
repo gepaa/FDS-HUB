@@ -15,6 +15,7 @@ import { type RecordDTO, type StageId } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import { useSound } from "@/hooks/useSound";
 import { RecordCard } from "@/components/crm/RecordCard";
+import { ScrollRail } from "@/components/kit/ScrollRail";
 
 type Stage = { id: string; label: string; color: string };
 
@@ -158,7 +159,10 @@ export function Board({
       onDragEnd={onDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="flex max-h-[calc(100dvh-22rem)] min-h-[24rem] gap-3 overflow-x-auto pb-2">
+      {/* ScrollRail draws a permanent scrollbar: with ~10 stages the
+          native overlay bar hides the fact that there is more board
+          off-screen. */}
+      <ScrollRail innerClassName="flex max-h-[calc(100dvh-26rem)] min-h-[20rem] gap-3">
         {stages.map((stage) => (
           <Column
             key={stage.id}
@@ -184,7 +188,7 @@ export function Board({
             </div>
           </section>
         ) : null}
-      </div>
+      </ScrollRail>
       <DragOverlay dropAnimation={{ duration: 220 }}>
         {active ? (
           <RecordCard record={active} onSelect={() => {}} overlay />
