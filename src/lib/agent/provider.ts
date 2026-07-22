@@ -84,6 +84,7 @@ type OaiMessage =
         id: string;
         type: "function";
         function: { name: string; arguments: string };
+        extra_content?: unknown;
       }[];
     }
   | { role: "tool"; tool_call_id: string; content: string };
@@ -106,6 +107,9 @@ function toOaiMessages(system: string, turns: AgentTurn[]): OaiMessage[] {
             id: c.id,
             type: "function",
             function: { name: c.name, arguments: JSON.stringify(c.input) },
+            // Gemini 3 requires its thought_signature echoed back on
+            // every replayed function call; other providers ignore it.
+            ...(c.meta ? { extra_content: c.meta } : {}),
           })),
         });
         break;
@@ -209,8 +213,12 @@ function openAiCompatProvider(
       }
 
       let text = "";
-      // Accumulate streamed tool calls by index.
-      const pending = new Map<number, { id: string; name: string; args: string }>();
+      // Accumulate streamed tool calls. Keyed by the chunk `index`
+      // when the provider sends one; Gemini sometimes omits it, so a
+      // chunk carrying a fresh `id` also starts a new call — otherwise
+      // parallel calls would concatenate into one garbled call.
+      const pending: { id: string; name: string; args: string; meta?: unknown }[] = [];
+      const byIndex = new Map<number, number>();
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -234,6 +242,7 @@ function openAiCompatProvider(
                   index?: number;
                   id?: string;
                   function?: { name?: string; arguments?: string };
+                  extra_content?: unknown;
                 }[];
               };
             }[];
@@ -252,27 +261,44 @@ function openAiCompatProvider(
             onTextDelta(delta.content);
           }
           for (const tc of delta.tool_calls ?? []) {
-            const idx = tc.index ?? 0;
-            const cur =
-              pending.get(idx) ?? { id: "", name: "", args: "" };
+            let pos: number;
+            if (tc.index !== undefined) {
+              if (!byIndex.has(tc.index)) {
+                byIndex.set(tc.index, pending.length);
+                pending.push({ id: "", name: "", args: "" });
+              }
+              pos = byIndex.get(tc.index)!;
+            } else if (tc.id || pending.length === 0) {
+              // No index: a fresh id (or first chunk) opens a new call.
+              pending.push({ id: "", name: "", args: "" });
+              pos = pending.length - 1;
+            } else {
+              pos = pending.length - 1;
+            }
+            const cur = pending[pos];
             if (tc.id) cur.id = tc.id;
             if (tc.function?.name) cur.name += tc.function.name;
             if (tc.function?.arguments) cur.args += tc.function.arguments;
-            pending.set(idx, cur);
+            if (tc.extra_content !== undefined) cur.meta = tc.extra_content;
           }
         }
       }
 
-      const toolCalls: AgentToolCall[] = [...pending.entries()]
-        .sort(([a], [b]) => a - b)
-        .map(([idx, c]) => {
+      const toolCalls: AgentToolCall[] = pending
+        .map((c, idx) => {
           let input: Record<string, unknown> = {};
           try {
             input = c.args ? JSON.parse(c.args) : {};
           } catch {
             input = { __malformed_arguments: c.args };
           }
-          return { id: c.id || `call_${idx}`, name: c.name, input };
+          return {
+            id: c.id || `call_${idx}`,
+            // Gemini namespaces tool names as "default_api:foo".
+            name: c.name.replace(/^default_api[.:]/, ""),
+            input,
+            meta: c.meta,
+          };
         })
         .filter((c) => c.name);
       return { text, toolCalls } satisfies ModelTurnResult;

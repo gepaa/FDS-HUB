@@ -18,6 +18,9 @@ export interface AgentToolCall {
   id: string;
   name: string;
   input: Record<string, unknown>;
+  /** Provider passthrough echoed on replay — e.g. Gemini's
+   *  extra_content.google.thought_signature. Never interpreted. */
+  meta?: unknown;
 }
 
 /** Result of executing one tool call, fed back to the model. */
