@@ -8,6 +8,11 @@ import {
   type RecordType,
 } from "@/lib/domain";
 import { listSops, readSop } from "@/lib/sops";
+import {
+  getShopifyCustomers,
+  getShopifyOverview,
+  shopifyConfigured,
+} from "@/lib/shopify";
 import type { AgentToolDef, AgentToolResult, AgentToolCall, ToolLogEntry } from "@/lib/agent/types";
 
 /**
@@ -21,7 +26,9 @@ import type { AgentToolDef, AgentToolResult, AgentToolCall, ToolLogEntry } from 
 
 // ---------- helpers ----------
 
-const MAX_RESULT_CHARS = 6000;
+// Keep tool results lean — free-tier models have small per-minute
+// token budgets and every result is re-sent on each loop round.
+const MAX_RESULT_CHARS = 3500;
 
 function j(value: unknown): string {
   const s = JSON.stringify(value, null, 1);
@@ -86,7 +93,7 @@ const TOOLS: ToolImpl[] = [
     def: {
       name: "search_records",
       description:
-        "Search CRM records (suppliers and leads). Filter by free-text query (name/company/niche/notes), type, status, cluster, rank, or priority. Returns compact records; use get_record for full detail.",
+        "Search CRM records (suppliers + leads) by text/type/status/cluster/rank/priority. Compact rows; get_record for detail.",
       inputSchema: {
         type: "object",
         properties: {
@@ -102,7 +109,7 @@ const TOOLS: ToolImpl[] = [
       },
     },
     async run(input) {
-      const limit = Math.min(Number(input.limit) || 20, 50);
+      const limit = Math.min(Number(input.limit) || 10, 25);
       const q = typeof input.query === "string" ? input.query.trim() : "";
       const where: Record<string, unknown> = {};
       if (input.type) where.type = input.type;
@@ -132,7 +139,7 @@ const TOOLS: ToolImpl[] = [
     def: {
       name: "get_record",
       description:
-        "Get one CRM record with full fields and its recent activity log. Accepts the cuid id, the human id (FDS-SUP-0012), or an exact name.",
+        "One CRM record in full + recent activity. Accepts cuid, human id (FDS-SUP-0012), or exact name.",
       inputSchema: {
         type: "object",
         properties: { idOrName: { type: "string" } },
@@ -143,7 +150,7 @@ const TOOLS: ToolImpl[] = [
       const key = String(input.idOrName ?? "").trim();
       const record = await prisma.crmRecord.findFirst({
         where: { OR: [{ id: key }, { recordId: key }, { name: key }] },
-        include: { interactions: { orderBy: { date: "desc" }, take: 15 } },
+        include: { interactions: { orderBy: { date: "desc" }, take: 8 } },
       });
       if (!record) return { content: `No record found for "${key}".`, summary: "not found" };
       const { interactions, ...fields } = record;
@@ -165,7 +172,7 @@ const TOOLS: ToolImpl[] = [
     def: {
       name: "create_record",
       description:
-        "Create a new CRM record (supplier or lead). A human record id (FDS-SUP-#### / FDS-LEAD-####) is allocated automatically and the creation is logged.",
+        "Create a CRM record (supplier or lead); human id auto-allocated, creation logged.",
       inputSchema: {
         type: "object",
         properties: {
@@ -241,7 +248,7 @@ const TOOLS: ToolImpl[] = [
     def: {
       name: "update_record",
       description:
-        "Update fields on a CRM record (status, priority, nextAction, contextSummary, contact info, notes, etc.). Status changes must use a stage id valid for the record's type; every change is logged on the activity feed.",
+        "Update record fields (status/priority/nextAction/contextSummary/contact/notes…). Status must fit the type's ladder; changes are logged.",
       inputSchema: {
         type: "object",
         properties: {
@@ -305,8 +312,7 @@ const TOOLS: ToolImpl[] = [
   {
     def: {
       name: "log_interaction",
-      description:
-        "Append an entry to a record's activity log — a call summary, an email received, a research note.",
+      description: "Append to a record's activity log (call/email/note…).",
       inputSchema: {
         type: "object",
         properties: {
@@ -373,7 +379,7 @@ const TOOLS: ToolImpl[] = [
     def: {
       name: "create_task",
       description:
-        "Add a task to the HQ queue. Use status 'queued' when the user explicitly asked for the task; use 'suggested' when you are proposing work for the user to approve.",
+        "Add an HQ task: 'queued' when the user asked for it, 'suggested' when you're proposing work.",
       inputSchema: {
         type: "object",
         properties: {
@@ -405,7 +411,7 @@ const TOOLS: ToolImpl[] = [
     def: {
       name: "update_task",
       description:
-        "Update a task: move queued→running→done (with a result note), edit title/detail, or record the outcome. You may not cancel tasks the user queued.",
+        "Update a task: queued→running→done (+result note) or edit title/detail. You can't cancel user-queued tasks.",
       inputSchema: {
         type: "object",
         properties: {
@@ -451,7 +457,7 @@ const TOOLS: ToolImpl[] = [
     def: {
       name: "list_approvals",
       description:
-        "List items in the Approvals gate (drafted outbound actions waiting for human sign-off). Statuses: pending, approved, rejected, snoozed, executed.",
+        "List Approvals-gate items (drafted outbound actions awaiting sign-off).",
       inputSchema: {
         type: "object",
         properties: {
@@ -488,7 +494,7 @@ const TOOLS: ToolImpl[] = [
     def: {
       name: "draft_approval",
       description:
-        "THE GATE: queue an outbound/irreversible action (email to a supplier or lead, publish, price quote, discount) as a draft for one-tap human approval. Nothing is sent until the human approves. Always include full reasoning.",
+        "THE GATE: queue any outbound/irreversible action (email, quote, publish, discount) as a draft for human approval. Nothing sends without it.",
       inputSchema: {
         type: "object",
         properties: {
@@ -541,7 +547,7 @@ const TOOLS: ToolImpl[] = [
     def: {
       name: "pipeline_stats",
       description:
-        "Live HQ snapshot: record counts by type and stage, due follow-ups, task queue state, pending approvals, recent activity.",
+        "Live HQ snapshot: counts by stage, due follow-ups, tasks, approvals, recent activity.",
       inputSchema: { type: "object", properties: {} },
     },
     async run() {
@@ -552,7 +558,7 @@ const TOOLS: ToolImpl[] = [
         prisma.crmRecord.count({ where: { nextActionDate: { lte: new Date() } } }),
         prisma.interaction.findMany({
           orderBy: { date: "desc" },
-          take: 8,
+          take: 5,
           include: { record: { select: { name: true } } },
         }),
       ]);
@@ -567,7 +573,7 @@ const TOOLS: ToolImpl[] = [
             record: i.record.name,
             type: i.type,
             actor: i.actor,
-            body: i.body.slice(0, 140),
+            body: i.body.slice(0, 100),
           })),
         }),
         summary: `${due} due follow-ups · ${approvals} pending approvals`,
@@ -578,7 +584,7 @@ const TOOLS: ToolImpl[] = [
     def: {
       name: "list_sops",
       description:
-        "List the SOP library and core context docs (the business's memory). Use read_sop to open one before doing specialized work (outreach, lead handling, imports…).",
+        "List SOPs + core context docs; open one with read_sop before specialized work.",
       inputSchema: { type: "object", properties: {} },
     },
     async run() {
@@ -606,17 +612,70 @@ const TOOLS: ToolImpl[] = [
       const doc = readSop(String(input.slug ?? ""));
       if (!doc) return { content: `No doc "${input.slug}".`, summary: "not found" };
       const body =
-        doc.markdown.length > 12000
-          ? doc.markdown.slice(0, 12000) + "\n…truncated"
+        doc.markdown.length > 7000
+          ? doc.markdown.slice(0, 7000) + "\n…truncated"
           : doc.markdown;
       return { content: body, summary: doc.title };
     },
   },
   {
     def: {
+      name: "shopify_customers",
+      description:
+        "Latest Shopify store customers (name/email/phone/location/orders/spend). Use with search_records + create_record to sync buyers into the CRM as leads.",
+      inputSchema: {
+        type: "object",
+        properties: { limit: { type: "number", description: "Max 50, default 25" } },
+      },
+    },
+    async run(input) {
+      if (!shopifyConfigured()) {
+        return {
+          content:
+            "Shopify is not connected (missing SHOPIFY_* env vars) — see Integrations.",
+          summary: "Shopify not connected",
+        };
+      }
+      const customers = await getShopifyCustomers(Number(input.limit) || 25);
+      return {
+        content: j(customers),
+        summary: `${customers.length} customers`,
+      };
+    },
+  },
+  {
+    def: {
+      name: "shopify_overview",
+      description:
+        "Store snapshot: product/customer counts, vendors, recent orders.",
+      inputSchema: { type: "object", properties: {} },
+    },
+    async run() {
+      if (!shopifyConfigured()) {
+        return {
+          content:
+            "Shopify is not connected (missing SHOPIFY_* env vars) — see Integrations.",
+          summary: "Shopify not connected",
+        };
+      }
+      const o = await getShopifyOverview();
+      return {
+        content: j({
+          shop: o.shop,
+          products: o.productsCount,
+          customers: o.customersCount,
+          vendors: o.vendors.slice(0, 40),
+          recentOrders: o.recentOrders?.slice(0, 8) ?? null,
+        }),
+        summary: o.shop ? `${o.shop.name}: ${o.productsCount ?? "?"} products` : "partial data",
+      };
+    },
+  },
+  {
+    def: {
       name: "post_agent_message",
       description:
-        "Post to the HQ agent-message feed (briefs, pings, run logs) that the dashboard shows. Use for durable summaries the user should see outside this chat.",
+        "Post a brief/ping/log to the HQ feed (durable summaries shown on the dashboard).",
       inputSchema: {
         type: "object",
         properties: {

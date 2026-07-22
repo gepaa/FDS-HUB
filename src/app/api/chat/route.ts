@@ -91,10 +91,10 @@ export async function POST(request: Request) {
 
   const history = await prisma.chatMessage.findMany({
     where: { sessionId },
-    orderBy: { createdAt: "asc" },
-    take: 30,
+    orderBy: { createdAt: "desc" },
+    take: 13,
     select: { role: true, content: true },
-  });
+  }).then((rows) => rows.reverse());
   // Drop the message we just stored — runAgent appends it itself.
   history.pop();
 

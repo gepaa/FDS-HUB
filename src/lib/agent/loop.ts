@@ -3,7 +3,11 @@ import { AGENT_TOOL_DEFS, executeToolCall } from "@/lib/agent/tools";
 import { buildSystemPrompt } from "@/lib/agent/context";
 import type { AgentEvent, AgentTurn, ToolLogEntry } from "@/lib/agent/types";
 
-const MAX_TOOL_ROUNDS = 12;
+const MAX_TOOL_ROUNDS = 8;
+// Free-tier TPM budgets are the binding constraint: cap how much old
+// conversation is replayed into every model turn.
+const MAX_HISTORY_TURNS = 12;
+const MAX_TURN_CHARS = 1500;
 
 export interface AgentRunResult {
   content: string;
@@ -30,13 +34,16 @@ export async function runAgent(opts: {
   }
 
   const system = await buildSystemPrompt();
+  const clip = (s: string) =>
+    s.length > MAX_TURN_CHARS ? s.slice(0, MAX_TURN_CHARS) + " …" : s;
   const turns: AgentTurn[] = [
     ...opts.history
       .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-MAX_HISTORY_TURNS)
       .map((m) =>
         m.role === "user"
-          ? ({ kind: "user", content: m.content } as const)
-          : ({ kind: "assistant", content: m.content } as const),
+          ? ({ kind: "user", content: clip(m.content) } as const)
+          : ({ kind: "assistant", content: clip(m.content) } as const),
       ),
     { kind: "user", content: opts.userMessage },
   ];

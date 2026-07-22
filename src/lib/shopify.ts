@@ -222,6 +222,65 @@ export async function getShopifyOverview(): Promise<ShopifyOverview> {
   };
 }
 
+// ---------------- customers (for the agent's lead sync) ----------------
+
+export interface ShopifyCustomerSummary {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  ordersCount: number;
+  amountSpent: string;
+  createdAt: string;
+}
+
+interface CustomersListData {
+  customers: {
+    edges: {
+      node: {
+        id: string;
+        displayName: string;
+        email: string | null;
+        phone: string | null;
+        numberOfOrders: string;
+        amountSpent: { amount: string; currencyCode: string };
+        createdAt: string;
+        defaultAddress: { city: string | null; provinceCode: string | null } | null;
+      };
+    }[];
+  };
+}
+
+/** Latest store customers — the agent uses this to sync buyers into
+ *  the CRM as leads. Requires the read_customers scope. */
+export async function getShopifyCustomers(
+  limit = 25,
+): Promise<ShopifyCustomerSummary[]> {
+  const data = await adminQuery<CustomersListData>(
+    `{ customers(first: ${Math.min(Math.max(limit, 1), 50)}, sortKey: CREATED_AT, reverse: true) {
+         edges { node {
+           id displayName email phone numberOfOrders createdAt
+           amountSpent { amount currencyCode }
+           defaultAddress { city provinceCode }
+         } } } }`,
+  );
+  return data.customers.edges.map(({ node }) => ({
+    id: node.id,
+    name: node.displayName,
+    email: node.email,
+    phone: node.phone,
+    location: node.defaultAddress
+      ? [node.defaultAddress.city, node.defaultAddress.provinceCode]
+          .filter(Boolean)
+          .join(", ") || null
+      : null,
+    ordersCount: parseInt(node.numberOfOrders, 10) || 0,
+    amountSpent: `${node.amountSpent.amount} ${node.amountSpent.currencyCode}`,
+    createdAt: node.createdAt,
+  }));
+}
+
 // ---------------- CRM ↔ store matching ----------------
 
 /** Normalize a brand/supplier name for matching ("Rimol Greenhouse

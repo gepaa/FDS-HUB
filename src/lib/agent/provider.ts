@@ -23,7 +23,9 @@ const OPENAI_COMPAT_PRESETS: Record<
 > = {
   groq: {
     baseUrl: "https://api.groq.com/openai/v1",
-    defaultModel: "llama-3.3-70b-versatile",
+    // Scout has the highest free-tier TPM on Groq (30k vs 12k for
+    // llama-3.3-70b) — the binding constraint for a tool-loop agent.
+    defaultModel: "meta-llama/llama-4-scout-17b-16e-instruct",
   },
   gemini: {
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -115,6 +117,14 @@ function toOaiMessages(system: string, turns: AgentTurn[]): OaiMessage[] {
   return out;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Parse Groq/OpenAI-style "try again in 12.34s" out of a 429 body. */
+function retryAfterSeconds(detail: string): number | null {
+  const m = detail.match(/try again in ([\d.]+)\s*s/i);
+  return m ? Math.ceil(parseFloat(m[1])) : null;
+}
+
 function openAiCompatProvider(
   providerId: string,
   baseUrl: string,
@@ -124,31 +134,70 @@ function openAiCompatProvider(
   return {
     label: `${providerId}/${model}`,
     async streamTurn({ system, turns, tools, onTextDelta, signal }) {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        signal,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          stream: true,
-          messages: toOaiMessages(system, turns),
-          tools: tools.map((t) => ({
-            type: "function",
-            function: {
-              name: t.name,
-              description: t.description,
-              parameters: t.inputSchema,
-            },
-          })),
-        }),
+      const body = JSON.stringify({
+        model,
+        stream: true,
+        messages: toOaiMessages(system, turns),
+        tools: tools.length
+          ? tools.map((t) => ({
+              type: "function",
+              function: {
+                name: t.name,
+                description: t.description,
+                parameters: t.inputSchema,
+              },
+            }))
+          : undefined,
       });
-      if (!res.ok || !res.body) {
+
+      // Failures happen before any token streams, so retrying here is
+      // invisible to the user: free-tier 429s wait out the window the
+      // provider names; flaky tool-call generation gets one more shot.
+      let res: Response | null = null;
+      let waited = 0;
+      for (let attempt = 0; ; attempt++) {
+        res = await fetch(`${baseUrl}/chat/completions`, {
+          method: "POST",
+          signal,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body,
+        });
+        if (res.ok && res.body) break;
+
         const detail = await res.text().catch(() => "");
+        if (res.status === 429 && attempt < 3) {
+          const wait = retryAfterSeconds(detail) ?? 8;
+          if (waited + wait <= 35) {
+            waited += wait;
+            await sleep((wait + 0.5) * 1000);
+            continue;
+          }
+          throw new Error(
+            `The free ${providerId} tier hit its per-minute token limit and needs ~${wait}s to cool down. Wait a moment and re-send — or upgrade the key / switch AI_PROVIDER for more headroom.`,
+          );
+        }
+        if (res.status === 429) {
+          throw new Error(
+            `The free ${providerId} tier is rate-limited right now. Give it a minute and try again.`,
+          );
+        }
+        if (
+          res.status === 400 &&
+          /failed_generation|tool_use_failed|tool call/i.test(detail) &&
+          attempt < 1
+        ) {
+          continue; // model fumbled the tool call — one clean retry
+        }
+        if (res.status === 400 && /failed_generation|tool_use_failed/i.test(detail)) {
+          throw new Error(
+            "The model failed to produce a valid tool call twice in a row. Re-send the message (smaller asks help) — or set AI_MODEL to a stronger tool-calling model.",
+          );
+        }
         throw new Error(
-          `${providerId} request failed (${res.status}): ${detail.slice(0, 400)}`,
+          `${providerId} request failed (${res.status}): ${detail.slice(0, 300)}`,
         );
       }
 
