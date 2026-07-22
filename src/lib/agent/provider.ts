@@ -29,7 +29,9 @@ const OPENAI_COMPAT_PRESETS: Record<
   },
   gemini: {
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-    defaultModel: "gemini-2.5-flash",
+    // Rolling alias — Google hot-swaps it to the newest Flash release
+    // (currently gemini-3.5-flash), so model retirements can't 404 us.
+    defaultModel: "gemini-flash-latest",
   },
   openrouter: {
     baseUrl: "https://openrouter.ai/api/v1",
@@ -182,6 +184,11 @@ function openAiCompatProvider(
         if (res.status === 429) {
           throw new Error(
             `The free ${providerId} tier is rate-limited right now. Give it a minute and try again.`,
+          );
+        }
+        if (res.status === 404 && /NOT_FOUND|no longer available|not found/i.test(detail)) {
+          throw new Error(
+            `${providerId} says the model "${model}" doesn't exist (retired or renamed). Set AI_MODEL to a current model — or unset it to use the built-in default — then redeploy.`,
           );
         }
         if (
