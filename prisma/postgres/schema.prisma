@@ -232,3 +232,22 @@ model AgentMessage {
   @@index([kind, createdAt])
   @@index([createdAt])
 }
+
+// ---------------- Clutch Timeline ----------------
+//
+// The "clutch" log — a running timeline of every batch of work we knock
+// down, plotted by the day it happened. The timeline opens ~3 months
+// back (the "Started E10" origin event) and runs forward to today; each
+// clutch is a dated marker with a title and optional notes. Purely a
+// human-curated journal surface (no agent writes), so it stays outside
+// the CRM record spine.
+model Clutch {
+  id        String   @id @default(cuid())
+  title     String
+  notes     String?
+  date      DateTime // the day this clutch landed (what the timeline plots)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+}

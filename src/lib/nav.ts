@@ -1,6 +1,7 @@
 import {
   BookOpen,
   CalendarDays,
+  GitCommitVertical,
   LayoutDashboard,
   ListChecks,
   MessagesSquare,
@@ -37,6 +38,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: LayoutDashboard,
     section: "hq",
     description: "Morning brief, KPIs, and what needs you.",
+  },
+  {
+    href: "/clutch",
+    label: "Clutch Timeline",
+    icon: GitCommitVertical,
+    section: "hq",
+    description: "Every batch of work we knock down, plotted day by day.",
   },
   {
     href: "/crm",
