@@ -87,6 +87,9 @@ export async function checkAndAlert(now: Date = new Date()): Promise<{
       body: bodyText,
       severity: severity === "critical" ? "critical" : "warn",
       url: HUB_URL,
+      // Ping the whole channel only when it's urgent (critical / empty),
+      // so routine "top up soon" nudges don't train people to mute it.
+      mentionEveryone: severity === "critical",
     });
 
     await prisma.alertLog.create({

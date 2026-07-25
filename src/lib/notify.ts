@@ -18,6 +18,12 @@ export interface NotifyInput {
   severity?: NotifySeverity;
   /** Optional link the message points back to (e.g. the hub page). */
   url?: string;
+  /**
+   * When true, prepend @everyone and allow the ping so the whole channel
+   * is notified (used for critical/empty ad-budget alerts). Left off for
+   * routine messages so the channel doesn't get muted.
+   */
+  mentionEveryone?: boolean;
 }
 
 export interface NotifyResult {
@@ -51,10 +57,17 @@ export async function notify(input: NotifyInput): Promise<NotifyResult> {
   const emoji = severity === "critical" ? "🔴" : severity === "warn" ? "🟠" : "🔵";
   const description = input.url ? `${input.body}\n\n${input.url}` : input.body;
 
+  // @everyone must appear in `content` AND be explicitly allowed, or
+  // Discord renders the text but suppresses the actual ping.
+  const mention = input.mentionEveryone ? "@everyone " : "";
+
   const payload = {
     // A plain content line guarantees a legible mobile push preview even
     // where embeds are collapsed.
-    content: `${emoji} **${input.title}**`,
+    content: `${mention}${emoji} **${input.title}**`,
+    allowed_mentions: {
+      parse: input.mentionEveryone ? ["everyone"] : [],
+    },
     embeds: [
       {
         title: input.title,
