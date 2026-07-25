@@ -259,3 +259,77 @@ model Clutch {
 
   @@index([date])
 }
+
+// ---------------- Ad Budget Watch ----------------
+//
+// Keeps ad-account balances accountable so the card never declines.
+// One row per spending account (Google Ads today; platform is free
+// text so Meta etc. fit later). Balance is derived-but-stored: every
+// deposit and adjustment is an AdLedgerEntry, and `balance` is the
+// running total the app keeps in sync on each write (single source of
+// truth for the runout math).
+//
+// Runout projection (app layer, src/lib/ad-budget.ts):
+//   daysLeft = balance / dailyBudget
+//   runoutDate = today + daysLeft
+// A reminder fires when the remaining balance drops to/under
+// `thresholdPct` of a full day-budget buffer — i.e. when we're within
+// `thresholdDays` of running dry — pushed to Discord by the daily cron
+// (src/app/api/cron/check-balances). AlertLog dedupes so we nudge once
+// per crossing, not every run.
+model AdAccount {
+  id           String  @id @default(cuid())
+  name         String
+  platform     String  @default("Google Ads")
+  externalId   String? // the account's ID in the platform (CID etc.)
+  currency     String  @default("USD")
+  balance      Float   @default(0) // running balance, kept in sync with the ledger
+  dailyBudget  Float   @default(0) // spend per day used for the runout projection
+  thresholdDays Int    @default(3) // remind when ≤ this many days of runway remain
+  active       Boolean @default(true)
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ledger AdLedgerEntry[]
+  alerts AlertLog[]
+
+  @@index([active])
+}
+
+// Every money event on an account — deposits (top-ups) and manual
+// balance corrections (reconcile to what the platform actually shows).
+// `delta` is signed: +100 top-up, -12.50 correction. `balanceAfter`
+// snapshots the running balance so the ledger reads as a statement.
+model AdLedgerEntry {
+  id           String    @id @default(cuid())
+  accountId    String
+  account      AdAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  kind         String // deposit | adjustment
+  delta        Float // signed amount applied to the balance
+  balanceAfter Float // running balance immediately after this entry
+  note         String?
+  occurredAt   DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+
+  @@index([accountId, occurredAt])
+}
+
+// Notification dedupe + audit. One row per alert actually sent, so the
+// cron nudges once per low-balance crossing (keyed on account + the
+// severity band) and the UI can show "last alerted".
+model AlertLog {
+  id        String    @id @default(cuid())
+  accountId String?
+  account   AdAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  kind      String // low_balance | runout | test
+  severity  String    @default("warn") // warn | critical
+  channel   String    @default("discord") // discord | none
+  title     String
+  body      String
+  delivered Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@index([accountId, kind, createdAt])
+}

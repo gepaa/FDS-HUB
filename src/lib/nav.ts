@@ -1,6 +1,7 @@
 import {
   BookOpen,
   CalendarDays,
+  GaugeCircle,
   GitCommitVertical,
   LayoutDashboard,
   ListChecks,
@@ -88,6 +89,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: BookOpen,
     section: "hq",
     description: "How Claude does everything — the playbooks.",
+  },
+  {
+    href: "/ad-budget",
+    label: "Ad Budget Watch",
+    icon: GaugeCircle,
+    section: "hq",
+    description: "Ad-account runway — balance, burn, and top-up reminders.",
   },
   {
     href: "/shopify",

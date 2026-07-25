@@ -251,3 +251,56 @@ model Clutch {
 
   @@index([date])
 }
+
+// ---------------- Ad Budget Watch ----------------
+// Keeps ad-account balances accountable so the card never declines.
+// See prisma/schema.prisma for the full model notes (kept identical).
+model AdAccount {
+  id           String  @id @default(cuid())
+  name         String
+  platform     String  @default("Google Ads")
+  externalId   String?
+  currency     String  @default("USD")
+  balance      Float   @default(0)
+  dailyBudget  Float   @default(0)
+  thresholdDays Int    @default(3)
+  active       Boolean @default(true)
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ledger AdLedgerEntry[]
+  alerts AlertLog[]
+
+  @@index([active])
+}
+
+model AdLedgerEntry {
+  id           String    @id @default(cuid())
+  accountId    String
+  account      AdAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  kind         String
+  delta        Float
+  balanceAfter Float
+  note         String?
+  occurredAt   DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+
+  @@index([accountId, occurredAt])
+}
+
+model AlertLog {
+  id        String     @id @default(cuid())
+  accountId String?
+  account   AdAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  kind      String
+  severity  String     @default("warn")
+  channel   String     @default("discord")
+  title     String
+  body      String
+  delivered Boolean    @default(false)
+  createdAt DateTime   @default(now())
+
+  @@index([accountId, kind, createdAt])
+}

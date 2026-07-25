@@ -52,6 +52,11 @@ const envSchema = z.object({
   // (docs/FDS_HQ_Decisions.md D4 — the agent↔app audit choke-point)
   AGENT_API_KEY: z.string().optional(),
 
+  // ---- Ad Budget Watch: daily cron auth (Vercel Cron) ----
+  // Set on Vercel; the cron route accepts `Bearer <CRON_SECRET>`. Unset
+  // locally = the cron route is open (dev convenience).
+  CRON_SECRET: z.string().optional(),
+
   // ---- Team access gate (production) — see src/proxy.ts ----
   TEAM_USER: z.string().optional(), // defaults to "fds"
   TEAM_PASSWORD: z.string().optional(), // unset = gate off (local dev)
