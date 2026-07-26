@@ -16,10 +16,13 @@ import {
 import {
   ACTIVE_SUPPLIER_STAGES,
   CLOSED_SUPPLIER_STAGE_SET,
+  CLUSTERS,
   isClosedSupplier,
   needsFollowUp,
+  RANKS,
   RECORD_TYPES,
   stagesFor,
+  STAGE_MAP,
   CLOSED_SUPPLIER_STAGES,
   type InteractionType,
   type RecordDTO,
@@ -37,12 +40,22 @@ import { SegmentedControl } from "@/components/kit/SegmentedControl";
 import { Board } from "@/components/crm/Board";
 import { TableView } from "@/components/crm/TableView";
 import { ClosedView } from "@/components/crm/ClosedView";
-import { FilterBar, type CrmFilters } from "@/components/crm/FilterBar";
+import {
+  FilterBar,
+  isFiltered,
+  type CrmFilters,
+  type FilterOption,
+} from "@/components/crm/FilterBar";
 import {
   RecordDrawer,
   type RecordFormData,
 } from "@/components/crm/RecordDrawer";
 import { ImportModal } from "@/components/crm/ImportModal";
+import {
+  APPLIED_STAGE,
+  QuickActionDialog,
+  type QuickAction,
+} from "@/components/crm/QuickActions";
 
 interface CrmWorkspaceProps {
   initial: RecordDTO[];
@@ -79,6 +92,9 @@ export function CrmWorkspace({
   const [creating, setCreating] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [quick, setQuick] = useState<{ id: string; action: QuickAction } | null>(
+    null,
+  );
 
   // Deep links: /crm?record=<id> and /crm?new=1
   useEffect(() => {
@@ -108,6 +124,13 @@ export function CrmWorkspace({
     [records, selectedId],
   );
 
+  // Looked up by id rather than held as a snapshot, so the dialog always
+  // acts on the current version of the record.
+  const quickRecord = useMemo(
+    () => (quick ? (records.find((r) => r.id === quick.id) ?? null) : null),
+    [records, quick],
+  );
+
   const replace = (dto: RecordDTO) =>
     setRecords((prev) => prev.map((r) => (r.id === dto.id ? dto : r)));
 
@@ -134,12 +157,83 @@ export function CrmWorkspace({
     [ofType, isSupplier],
   );
 
-  const clusterCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const r of pipelineRecords)
-      counts[r.cluster] = (counts[r.cluster] ?? 0) + 1;
-    return counts;
-  }, [pipelineRecords]);
+  const pipelineStages = isSupplier
+    ? ACTIVE_SUPPLIER_STAGES
+    : stagesFor(recordType);
+
+  /**
+   * Filter options come off the records themselves, not the constants in
+   * domain.ts: a cluster or rank introduced by a later import has to be
+   * filterable, and a value that no record carries is just noise. The
+   * active filter value is always kept in its list so a filter can never
+   * be applied-but-invisible.
+   */
+  const facets = useMemo(() => {
+    const clusters = new Map<string, number>();
+    const ranks = new Map<string, number>();
+    const statuses = new Map<string, number>();
+    let unranked = 0;
+    for (const r of pipelineRecords) {
+      clusters.set(r.cluster, (clusters.get(r.cluster) ?? 0) + 1);
+      statuses.set(r.status, (statuses.get(r.status) ?? 0) + 1);
+      if (r.rank) ranks.set(r.rank, (ranks.get(r.rank) ?? 0) + 1);
+      else unranked += 1;
+    }
+
+    /** Seeded order first, then whatever the DB has picked up since. */
+    const order = (seeded: readonly string[], found: Iterable<string>) => {
+      const all = new Set(found);
+      return [
+        ...seeded.filter((v) => all.has(v)),
+        ...[...all]
+          .filter((v) => !seeded.includes(v))
+          .sort((a, b) => a.localeCompare(b)),
+      ];
+    };
+    const withActive = (ids: string[], active: string | null) =>
+      active && active !== "unranked" && !ids.includes(active)
+        ? [...ids, active]
+        : ids;
+
+    const clusterOptions: FilterOption[] = withActive(
+      order(CLUSTERS, clusters.keys()),
+      filters.cluster,
+    ).map((id) => ({ id, label: id, count: clusters.get(id) ?? 0 }));
+
+    const rankOptions: FilterOption[] = withActive(
+      order(RANKS, ranks.keys()),
+      filters.rank,
+    ).map((id) => ({ id, label: id, count: ranks.get(id) ?? 0 }));
+
+    // Stages are the pipeline's definition, so the whole ladder stays —
+    // plus any status the DB holds that the ladder doesn't know about.
+    const ladderIds = pipelineStages.map((s) => s.id as string);
+    const stageOptions: FilterOption[] = [
+      ...pipelineStages.map((s) => ({
+        id: s.id as string,
+        label: s.label,
+        count: statuses.get(s.id) ?? 0,
+        color: s.color,
+      })),
+      ...[...statuses.keys()]
+        .filter((id) => !ladderIds.includes(id))
+        .sort((a, b) => a.localeCompare(b))
+        .map((id) => ({
+          id,
+          label: STAGE_MAP[id]?.label ?? id,
+          count: statuses.get(id) ?? 0,
+          color: STAGE_MAP[id]?.color,
+        })),
+    ];
+
+    return { clusterOptions, rankOptions, stageOptions, unranked };
+  }, [pipelineRecords, pipelineStages, filters.cluster, filters.rank]);
+
+  /** Every cluster the DB knows about — the drawer's select reads this. */
+  const allClusters = useMemo(
+    () => [...new Set<string>([...CLUSTERS, ...records.map((r) => r.cluster)])],
+    [records],
+  );
 
   const followUpCount = useMemo(
     () => pipelineRecords.filter(needsFollowUp).length,
@@ -199,10 +293,6 @@ export function CrmWorkspace({
     });
   }, [pipelineRecords, filters]);
 
-  const pipelineStages = isSupplier
-    ? ACTIVE_SUPPLIER_STAGES
-    : stagesFor(recordType);
-
   // ---------- mutations ----------
   const moveStage = async (id: string, status: StageId) => {
     const before = records;
@@ -256,12 +346,30 @@ export function CrmWorkspace({
     }
   };
 
+  /**
+   * Quick actions. Every one of these writes through the API and then
+   * replaces the record in the single `records` array both the board and
+   * the table render from — so the result shows up in whichever view is
+   * open, with no refetch.
+   */
+  const logFor = async (
+    record: RecordDTO,
+    type: InteractionType,
+    body: string,
+  ) => {
+    const dto = await api.logInteraction(record.id, { type, body });
+    replace(dto);
+    toast({
+      title: `${type === "note" ? "Note" : type === "call" ? "Call" : "Email"} logged`,
+      description: record.name,
+      tone: "success",
+    });
+  };
+
   const logInteraction = async (type: InteractionType, body: string) => {
     if (!selected) return;
     try {
-      const dto = await api.logInteraction(selected.id, { type, body });
-      replace(dto);
-      toast({ title: "Interaction logged", tone: "success" });
+      await logFor(selected, type, body);
     } catch (e) {
       toast({
         title: "Couldn't log interaction",
@@ -269,6 +377,84 @@ export function CrmWorkspace({
         tone: "error",
       });
     }
+  };
+
+  const deleteInteraction = async (interactionId: string) => {
+    const before = records;
+    setRecords((prev) =>
+      prev.map((r) => ({
+        ...r,
+        interactions: r.interactions.filter((i) => i.id !== interactionId),
+      })),
+    );
+    try {
+      await api.deleteInteraction(interactionId);
+      toast({ title: "Log entry removed", tone: "info" });
+    } catch (e) {
+      setRecords(before);
+      toast({
+        title: "Couldn't remove that entry",
+        description: e instanceof Error ? e.message : undefined,
+        tone: "error",
+      });
+    }
+  };
+
+  const setNextActionFor = async (
+    record: RecordDTO,
+    nextAction: string,
+    nextActionDate: string | null,
+  ) => {
+    const dto = await api.updateRecord(record.id, {
+      nextAction,
+      nextActionDate,
+    });
+    replace(dto);
+    toast({
+      title: "Next action set",
+      description: `${record.name} · ${nextAction}`,
+      tone: "success",
+    });
+  };
+
+  /** Dealer application is in — forward to In Conversation, with a note. */
+  const markApplied = async (record: RecordDTO) => {
+    try {
+      const moved = await api.updateRecord(record.id, {
+        status: APPLIED_STAGE,
+        lastContactDate: new Date().toISOString(),
+      });
+      replace(moved);
+      const logged = await api.logInteraction(record.id, {
+        type: "note",
+        body: "Dealer application submitted",
+      });
+      replace(logged);
+      toast({
+        title: `${record.name} marked applied`,
+        description: `Moved to ${STAGE_MAP[APPLIED_STAGE]?.label ?? APPLIED_STAGE}`,
+        tone: "success",
+      });
+    } catch (e) {
+      toast({
+        title: "Couldn't mark applied",
+        description: e instanceof Error ? e.message : undefined,
+        tone: "error",
+      });
+    }
+  };
+
+  const onQuickAction = (record: RecordDTO, action: QuickAction) => {
+    if (action === "open") {
+      setCreating(false);
+      setSelectedId(record.id);
+      return;
+    }
+    if (action === "applied") {
+      void markApplied(record);
+      return;
+    }
+    setQuick({ id: record.id, action });
   };
 
   const deleteRecord = async () => {
@@ -289,14 +475,16 @@ export function CrmWorkspace({
     }
   };
 
-  const importRows = async (rows: ParsedSupplier[]) => {
+  const importRows = async (rows: ParsedSupplier[], updateStages: boolean) => {
     try {
-      const result = await api.importRecords(rows);
+      const result = await api.importRecords(rows, updateStages);
       const fresh = await api.listRecords();
       setRecords(fresh);
       toast({
         title: "Import complete",
-        description: `${result.created} created · ${result.updated} updated`,
+        description: `${result.created} created · ${result.updated} updated${
+          result.stagesChanged ? ` · ${result.stagesChanged} moved stage` : ""
+        }`,
         tone: "success",
       });
     } catch (e) {
@@ -313,6 +501,36 @@ export function CrmWorkspace({
   const supplierCount = records.filter((r) => r.type === "supplier").length;
 
   const showClosed = isSupplier && scope === "closed";
+
+  const noun = recordType === "lead" ? "leads" : "suppliers";
+  const clearFilters = () => setFilters(defaultFilters);
+  const startCreate = () => {
+    setSelectedId(null);
+    setCreating(true);
+  };
+
+  /** What to say when the board/table comes back empty. */
+  const emptyState = filters.followUpOnly
+    ? {
+        title: `No ${noun} need follow-up today`,
+        body: "Nothing is due or overdue in this view. Clear the follow-up filter to see the rest of the pipeline.",
+        onClearFilters: clearFilters,
+      }
+    : isFiltered(filters)
+      ? {
+          title: "Nothing matches these filters",
+          body: `There are ${pipelineRecords.length} ${noun} in the pipeline, but none match the current search and filters.`,
+          onClearFilters: clearFilters,
+        }
+      : {
+          title: `No ${noun} in the pipeline yet`,
+          body:
+            recordType === "lead"
+              ? "Leads arrive from Shopify and Gmail, or you can add one by hand."
+              : "Add a supplier by hand, or import the outreach sheet to fill the board.",
+          onCreate: startCreate,
+          createLabel: recordType === "lead" ? "New lead" : "New supplier",
+        };
 
   return (
     <div className="flex flex-col gap-6">
@@ -492,15 +710,21 @@ export function CrmWorkspace({
         <>
           <FilterBar
             recordType={recordType}
-            stages={pipelineStages}
+            stageOptions={facets.stageOptions}
+            clusterOptions={facets.clusterOptions}
+            rankOptions={facets.rankOptions}
+            unrankedCount={facets.unranked}
             filters={filters}
             onChange={setFilters}
+            onClear={clearFilters}
             view={view}
             onViewChange={setView}
-            clusterCounts={clusterCounts}
             followUpCount={followUpCount}
           />
 
+          {/* Both views read `filtered` and `records`, so the board and
+              the table always agree and the view toggle keeps the
+              active filters. */}
           {view === "board" ? (
             <Board
               records={filtered}
@@ -508,12 +732,16 @@ export function CrmWorkspace({
               closeTargets={isSupplier ? CLOSED_SUPPLIER_STAGES : undefined}
               onMoveStage={moveStage}
               onSelect={setSelectedId}
+              onQuickAction={onQuickAction}
+              empty={emptyState}
             />
           ) : (
             <TableView
               records={filtered}
               recordType={recordType}
               onSelect={setSelectedId}
+              onQuickAction={onQuickAction}
+              emptyMessage={`${emptyState.title} — ${emptyState.body}`}
             />
           )}
         </>
@@ -522,6 +750,7 @@ export function CrmWorkspace({
       <RecordDrawer
         record={creating ? null : selected}
         createType={recordType}
+        clusterOptions={allClusters}
         open={creating || selected !== null}
         onClose={() => {
           setCreating(false);
@@ -530,6 +759,17 @@ export function CrmWorkspace({
         onSave={saveRecord}
         onDelete={() => setConfirmDelete(true)}
         onLogInteraction={logInteraction}
+        onDeleteInteraction={deleteInteraction}
+        onQuickAction={onQuickAction}
+      />
+
+      <QuickActionDialog
+        key={quick ? `${quick.id}:${quick.action}` : "quick-idle"}
+        record={quickRecord}
+        action={quick?.action ?? null}
+        onClose={() => setQuick(null)}
+        onLog={logFor}
+        onSetNextAction={setNextActionFor}
       />
 
       <Modal

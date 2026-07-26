@@ -5,16 +5,26 @@ import { Clock, MessageSquareText } from "lucide-react";
 import { needsFollowUp, type RecordDTO } from "@/lib/domain";
 import { cn, shortDate } from "@/lib/utils";
 import { OwnerBadge, PriorityBadge, RankBadge } from "@/components/crm/badges";
+import {
+  QuickActionsMenu,
+  type QuickAction,
+} from "@/components/crm/QuickActions";
 
 interface RecordCardProps {
   record: RecordDTO;
   onSelect: (id: string) => void;
   /** Static clone rendered inside DragOverlay. */
   overlay?: boolean;
+  onQuickAction?: (record: RecordDTO, action: QuickAction) => void;
 }
 
 /** Kanban card. Drag ≥6px to move stages; click to open the drawer. */
-export function RecordCard({ record, onSelect, overlay }: RecordCardProps) {
+export function RecordCard({
+  record,
+  onSelect,
+  overlay,
+  onQuickAction,
+}: RecordCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: record.id,
     disabled: overlay,
@@ -47,8 +57,21 @@ export function RecordCard({ record, onSelect, overlay }: RecordCardProps) {
           "rotate-2 scale-[1.03] cursor-grabbing shadow-2xl border-[var(--accent)]",
       )}
     >
-      <p className="truncate text-sm font-medium text-ink">{record.name}</p>
-      {sub ? <p className="mt-0.5 truncate text-xs text-muted">{sub}</p> : null}
+      <div className="flex items-start gap-1">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-ink">{record.name}</p>
+          {sub ? (
+            <p className="mt-0.5 truncate text-xs text-muted">{sub}</p>
+          ) : null}
+        </div>
+        {!overlay && onQuickAction ? (
+          <QuickActionsMenu
+            record={record}
+            onSelect={onQuickAction}
+            triggerClassName="-mt-1 -mr-1 shrink-0"
+          />
+        ) : null}
+      </div>
       {record.nextAction ? (
         <p className="mt-1.5 truncate rounded-md bg-[var(--accent-soft)] px-1.5 py-1 text-[11px] text-accent-bright">
           → {record.nextAction}

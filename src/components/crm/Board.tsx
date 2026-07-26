@@ -11,11 +11,15 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { Inbox, Plus } from "lucide-react";
 import { type RecordDTO, type StageId } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import { useSound } from "@/hooks/useSound";
 import { RecordCard } from "@/components/crm/RecordCard";
 import { ScrollRail } from "@/components/kit/ScrollRail";
+import { GlassPanel } from "@/components/kit/GlassPanel";
+import { Button } from "@/components/kit/Button";
+import type { QuickAction } from "@/components/crm/QuickActions";
 
 type Stage = { id: string; label: string; color: string };
 
@@ -31,16 +35,27 @@ interface BoardProps {
   closeTargets?: readonly Stage[];
   onMoveStage: (id: string, stage: StageId) => void;
   onSelect: (id: string) => void;
+  onQuickAction?: (record: RecordDTO, action: QuickAction) => void;
+  /** Shown when nothing matches — see EmptyBoard. */
+  empty?: {
+    title: string;
+    body: string;
+    onClearFilters?: () => void;
+    onCreate?: () => void;
+    createLabel?: string;
+  };
 }
 
 function Column({
   stage,
   records,
   onSelect,
+  onQuickAction,
 }: {
   stage: Stage;
   records: RecordDTO[];
   onSelect: (id: string) => void;
+  onQuickAction?: (record: RecordDTO, action: QuickAction) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   return (
@@ -67,7 +82,12 @@ function Column({
         )}
       >
         {records.map((r) => (
-          <RecordCard key={r.id} record={r} onSelect={onSelect} />
+          <RecordCard
+            key={r.id}
+            record={r}
+            onSelect={onSelect}
+            onQuickAction={onQuickAction}
+          />
         ))}
         {records.length === 0 ? (
           <p className="px-2 py-6 text-center text-xs text-muted">
@@ -99,6 +119,35 @@ function CloseSlot({ stage }: { stage: Stage }) {
   );
 }
 
+/**
+ * Zero results. Ten empty columns look identical to a broken board, so
+ * say what happened and offer the way out instead.
+ */
+function EmptyBoard({ empty }: { empty: NonNullable<BoardProps["empty"]> }) {
+  return (
+    <GlassPanel className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+      <Inbox size={26} aria-hidden className="text-muted" />
+      <div>
+        <p className="text-sm font-medium text-ink">{empty.title}</p>
+        <p className="mx-auto mt-1 max-w-sm text-xs text-muted">{empty.body}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        {empty.onClearFilters ? (
+          <Button variant="ghost" size="sm" onClick={empty.onClearFilters}>
+            Clear filters
+          </Button>
+        ) : null}
+        {empty.onCreate ? (
+          <Button variant="primary" size="sm" onClick={empty.onCreate}>
+            <Plus size={13} aria-hidden />
+            {empty.createLabel ?? "New record"}
+          </Button>
+        ) : null}
+      </div>
+    </GlassPanel>
+  );
+}
+
 /** Kanban view — drag cards across the pipeline for the active record type. */
 export function Board({
   records,
@@ -106,6 +155,8 @@ export function Board({
   closeTargets,
   onMoveStage,
   onSelect,
+  onQuickAction,
+  empty,
 }: BoardProps) {
   const { sound } = useSound();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -149,6 +200,8 @@ export function Board({
     }
   };
 
+  if (records.length === 0 && empty) return <EmptyBoard empty={empty} />;
+
   return (
     <DndContext
       // Stable id keeps dnd-kit's SSR-generated aria attributes in sync
@@ -169,6 +222,7 @@ export function Board({
             stage={stage}
             records={byStage.get(stage.id) ?? []}
             onSelect={onSelect}
+            onQuickAction={onQuickAction}
           />
         ))}
         {closeTargets?.length ? (

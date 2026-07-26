@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ExternalLink, PhoneCall, Send, Trash2 } from "lucide-react";
 import {
-  CLUSTERS,
   INTERACTION_TYPES,
   OWNERS,
   PRIORITIES,
@@ -20,6 +19,7 @@ import { Button } from "@/components/kit/Button";
 import { Field, Input, Select, Textarea } from "@/components/kit/Field";
 import { Chip } from "@/components/kit/Chip";
 import { OwnerBadge, PriorityBadge, StageBadge } from "@/components/crm/badges";
+import { QuickActionBar, type QuickAction } from "@/components/crm/QuickActions";
 
 /** Flat form payload — matches the PATCH/POST body of /api/records. */
 export interface RecordFormData {
@@ -60,14 +60,43 @@ interface RecordDrawerProps {
   record: RecordDTO | null; // null = create mode
   open: boolean;
   createType?: RecordType;
+  /** Cluster values present in the DB, so an off-list one survives a save. */
+  clusterOptions: string[];
   onClose: () => void;
   onSave: (data: RecordFormData) => void | Promise<void>;
   onDelete: () => void;
   onLogInteraction: (type: InteractionType, body: string) => void | Promise<void>;
+  onDeleteInteraction: (interactionId: string) => void | Promise<void>;
+  onQuickAction?: (record: RecordDTO, action: QuickAction) => void;
 }
 
 const dateInput = (iso: string | null | undefined) =>
   iso ? iso.slice(0, 10) : "";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type FormErrors = Partial<
+  Record<"name" | "email" | "nextActionDate" | "lastContactDate", string>
+>;
+
+/**
+ * Client-side mirror of the zod rules in src/lib/validation.ts. The
+ * server is still the authority; this exists so the operator sees which
+ * field is wrong instead of a toast with a joined error string.
+ */
+function validate(form: RecordFormData): FormErrors {
+  const errors: FormErrors = {};
+  if (!(form.name ?? "").trim()) errors.name = "A name is required.";
+  const email = (form.email ?? "").trim();
+  if (email && !EMAIL_RE.test(email))
+    errors.email = "That doesn't look like an email address.";
+  for (const key of ["nextActionDate", "lastContactDate"] as const) {
+    const value = (form[key] ?? "").trim();
+    if (value && Number.isNaN(new Date(value).getTime()))
+      errors[key] = "Use a real date (YYYY-MM-DD).";
+  }
+  return errors;
+}
 
 function buildForm(r: RecordDTO | null, createType: RecordType): RecordFormData {
   return {
@@ -111,30 +140,63 @@ export function RecordDrawer({
   record,
   open,
   createType = "supplier",
+  clusterOptions,
   onClose,
   onSave,
   onDelete,
   onLogInteraction,
+  onDeleteInteraction,
+  onQuickAction,
 }: RecordDrawerProps) {
   const creating = record === null;
   const [form, setForm] = useState<RecordFormData>(() =>
     buildForm(record, createType),
   );
+  const [errors, setErrors] = useState<FormErrors>({});
   const [logType, setLogType] = useState<InteractionType>("note");
   const [logBody, setLogBody] = useState("");
+  const [logError, setLogError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmDeleteLog, setConfirmDeleteLog] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) setForm(buildForm(record, createType));
+    if (open) {
+      setForm(buildForm(record, createType));
+      setErrors({});
+      setLogError(null);
+      setConfirmDeleteLog(null);
+    }
   }, [open, record, createType]);
 
   const type: RecordType = (form.type as RecordType) ?? "supplier";
   const stages = useMemo(() => stagesFor(type), [type]);
 
-  const set = (patch: Partial<RecordFormData>) =>
+  // The record's own cluster is always offered, even if a later import
+  // introduced one outside the seeded 8 — otherwise the select would
+  // silently rewrite it on the next save.
+  const clusters = useMemo(() => {
+    const current = (form.cluster ?? "").trim();
+    const all = new Set(clusterOptions);
+    if (current) all.add(current);
+    return [...all].sort((a, b) => a.localeCompare(b));
+  }, [clusterOptions, form.cluster]);
+
+  const set = (patch: Partial<RecordFormData>) => {
     setForm((f) => ({ ...f, ...patch }));
+    // Clear an error as soon as the operator edits that field.
+    const touched = Object.keys(patch) as (keyof FormErrors)[];
+    setErrors((e) => {
+      if (!touched.some((k) => e[k])) return e;
+      const next = { ...e };
+      for (const k of touched) delete next[k];
+      return next;
+    });
+  };
 
   const save = async () => {
+    const found = validate(form);
+    setErrors(found);
+    if (Object.keys(found).length > 0) return;
     setSaving(true);
     try {
       await onSave({
@@ -155,7 +217,11 @@ export function RecordDrawer({
 
   const submitLog = async () => {
     const body = logBody.trim();
-    if (!body) return;
+    if (!body) {
+      setLogError("Type what happened first — an empty entry isn't logged.");
+      return;
+    }
+    setLogError(null);
     await onLogInteraction(logType, body);
     setLogBody("");
   };
@@ -302,12 +368,13 @@ export function RecordDrawer({
                 />
               )}
             </Field>
-            <Field label="Due">
+            <Field label="Due" error={errors.nextActionDate}>
               {(id) => (
                 <Input
                   id={id}
                   type="date"
                   value={form.nextActionDate ?? ""}
+                  aria-invalid={errors.nextActionDate ? true : undefined}
                   onChange={(e) => set({ nextActionDate: e.target.value })}
                 />
               )}
@@ -315,13 +382,19 @@ export function RecordDrawer({
           </div>
         </section>
 
+        {!creating && onQuickAction ? (
+          <QuickActionBar record={record} onSelect={onQuickAction} />
+        ) : null}
+
         {/* ---- Identity ---- */}
         <section className="grid grid-cols-2 gap-3">
-          <Field label="Name" className="col-span-2">
+          <Field label="Name" className="col-span-2" error={errors.name}>
             {(id) => (
               <Input
                 id={id}
                 value={form.name ?? ""}
+                required
+                aria-invalid={errors.name ? true : undefined}
                 onChange={(e) => set({ name: e.target.value })}
               />
             )}
@@ -344,12 +417,13 @@ export function RecordDrawer({
               />
             )}
           </Field>
-          <Field label="Email">
+          <Field label="Email" error={errors.email}>
             {(id) => (
               <Input
                 id={id}
                 type="email"
                 value={form.email ?? ""}
+                aria-invalid={errors.email ? true : undefined}
                 onChange={(e) => set({ email: e.target.value })}
               />
             )}
@@ -360,6 +434,22 @@ export function RecordDrawer({
                 id={id}
                 value={form.phone ?? ""}
                 onChange={(e) => set({ phone: e.target.value })}
+              />
+            )}
+          </Field>
+          <Field
+            label="Last contact"
+            className="col-span-2"
+            error={errors.lastContactDate}
+            hint="Set automatically when you log a call or an email."
+          >
+            {(id) => (
+              <Input
+                id={id}
+                type="date"
+                value={form.lastContactDate ?? ""}
+                aria-invalid={errors.lastContactDate ? true : undefined}
+                onChange={(e) => set({ lastContactDate: e.target.value })}
               />
             )}
           </Field>
@@ -388,7 +478,7 @@ export function RecordDrawer({
                     value={form.cluster}
                     onChange={(e) => set({ cluster: e.target.value })}
                   >
-                    {CLUSTERS.map((c) => (
+                    {clusters.map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>
@@ -514,6 +604,16 @@ export function RecordDrawer({
                   />
                 )}
               </Field>
+              <Field label="Lead time">
+                {(id) => (
+                  <Input
+                    id={id}
+                    value={form.leadTime ?? ""}
+                    onChange={(e) => set({ leadTime: e.target.value })}
+                    placeholder="e.g. 2–3 weeks"
+                  />
+                )}
+              </Field>
               <Field label="Warranty">
                 {(id) => (
                   <Input
@@ -616,15 +716,26 @@ export function RecordDrawer({
                   ))}
                 </Select>
               </div>
-              <Input
-                value={logBody}
-                onChange={(e) => setLogBody(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void submitLog();
-                }}
-                placeholder="Log an email, call, or note…"
-                aria-label="Interaction body"
-              />
+              <div className="flex-1">
+                <Input
+                  value={logBody}
+                  onChange={(e) => {
+                    setLogBody(e.target.value);
+                    if (logError) setLogError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void submitLog();
+                  }}
+                  aria-invalid={logError ? true : undefined}
+                  placeholder="Log an email, call, or note…"
+                  aria-label="Interaction body"
+                />
+                {logError ? (
+                  <p role="alert" className="mt-1 text-[11px] text-danger">
+                    {logError}
+                  </p>
+                ) : null}
+              </div>
               <Button
                 variant="primary"
                 size="sm"
@@ -645,12 +756,46 @@ export function RecordDrawer({
                     <span>·</span>
                     <span>{i.actor}</span>
                     <span className="num ml-auto">{shortDate(i.date)}</span>
+                    {/* Two-step delete: the log is the CRM's memory, so
+                        removing an entry asks first, inline. */}
+                    {confirmDeleteLog === i.id ? (
+                      <span className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setConfirmDeleteLog(null);
+                            void onDeleteInteraction(i.id);
+                          }}
+                          className="press rounded-control px-1.5 py-0.5 font-medium text-danger hover:bg-[var(--red-soft)]"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteLog(null)}
+                          className="press rounded-control px-1.5 py-0.5 hover:text-ink"
+                        >
+                          Keep
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteLog(i.id)}
+                        aria-label={`Delete this ${i.type} entry`}
+                        className="press rounded-control p-1 hover:bg-[var(--red-soft)] hover:text-danger"
+                      >
+                        <Trash2 size={11} aria-hidden />
+                      </button>
+                    )}
                   </div>
                   <p className="mt-1 whitespace-pre-wrap text-ink">{i.body}</p>
                 </li>
               ))}
               {record.interactions.length === 0 ? (
-                <li className="text-xs text-muted">No activity yet.</li>
+                <li className="text-xs text-muted">
+                  No activity yet — log the first call, email, or note above.
+                </li>
               ) : null}
             </ul>
           </section>

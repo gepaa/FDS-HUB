@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  CLUSTERS,
-  LEAD_STAGE_IDS,
-  SUPPLIER_STAGE_IDS,
-} from "@/lib/domain";
+import { LEAD_STAGE_IDS, SUPPLIER_STAGE_IDS } from "@/lib/domain";
 
 const nullableTrimmed = z
   .string()
@@ -14,14 +10,45 @@ const nullableTrimmed = z
   .nullable()
   .optional();
 
+/**
+ * Dates arrive as "" (cleared), null, or a date string. An unparseable
+ * string is an error, not a null — silently discarding it looked like a
+ * successful save while the operator's date never landed.
+ */
 const nullableDate = z
   .union([z.string(), z.null()])
   .optional()
-  .transform((v) => {
+  .transform((v, ctx) => {
+    if (v === undefined) return undefined;
     if (!v) return null;
     const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? null : d;
+    if (Number.isNaN(d.getTime())) {
+      ctx.addIssue({ code: "custom", message: `"${v}" is not a valid date` });
+      return z.NEVER;
+    }
+    return d;
   });
+
+/** Email: optional, but must look like one when present. */
+const nullableEmail = z
+  .string()
+  .transform((s) => {
+    const t = s.trim();
+    return t.length ? t : null;
+  })
+  .nullable()
+  .optional()
+  .refine((v) => v == null || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
+    message: "Enter a valid email address",
+  });
+
+/**
+ * Cluster is operator-extensible: the original 8 are the seeded set, but
+ * imports and later suppliers can introduce new ones, and the CRM filters
+ * derive their options from whatever is actually in the DB. Constraining
+ * this to the enum made an off-list cluster unsaveable.
+ */
+const clusterName = z.string().trim().min(1).max(80);
 
 const stringList = z
   .array(z.string().trim().min(1))
@@ -40,7 +67,7 @@ export const recordInput = z
     name: z.string().trim().min(1, "Name is required").max(200),
     company: nullableTrimmed,
     niche: nullableTrimmed,
-    cluster: z.enum(CLUSTERS).default("Other"),
+    cluster: clusterName.default("Other"),
     bestSeller: nullableTrimmed,
     rank: z
       .union([z.enum(["Gold", "Silver", "Bronze"]), z.literal(""), z.null()])
@@ -49,7 +76,7 @@ export const recordInput = z
     websiteUrl: nullableTrimmed,
     dealerAppUrl: nullableTrimmed,
     mainContact: nullableTrimmed,
-    email: nullableTrimmed,
+    email: nullableEmail,
     phone: nullableTrimmed,
     status: z.string().optional(),
     owner: z.enum(["claude", "you", "unassigned"]).default("unassigned"),
@@ -106,7 +133,7 @@ export const recordPatch = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   company: nullableTrimmed,
   niche: nullableTrimmed,
-  cluster: z.enum(CLUSTERS).optional(),
+  cluster: clusterName.optional(),
   bestSeller: nullableTrimmed,
   rank: z
     .union([z.enum(["Gold", "Silver", "Bronze"]), z.literal(""), z.null()])
@@ -115,7 +142,7 @@ export const recordPatch = z.object({
   websiteUrl: nullableTrimmed,
   dealerAppUrl: nullableTrimmed,
   mainContact: nullableTrimmed,
-  email: nullableTrimmed,
+  email: nullableEmail,
   phone: nullableTrimmed,
   status: z.string().optional(),
   owner: z.enum(["claude", "you", "unassigned"]).optional(),
@@ -160,6 +187,12 @@ export const interactionInput = z.object({
 });
 
 export const importInput = z.object({
+  /**
+   * Opt-in stage overwrite. A CSV is usually staler than the hub, so an
+   * import must not silently drag a supplier backwards down the ladder —
+   * the operator ticks this in the import modal when they mean it.
+   */
+  updateStages: z.boolean().optional().default(false),
   records: z
     .array(
       z.object({

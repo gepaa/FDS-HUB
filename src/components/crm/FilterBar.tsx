@@ -1,13 +1,9 @@
 "use client";
 
-import { Columns3, Search, TableProperties } from "lucide-react";
-import {
-  CLUSTERS,
-  OWNERS,
-  RANKS,
-  type RecordType,
-} from "@/lib/domain";
+import { Columns3, Search, TableProperties, X } from "lucide-react";
+import { OWNERS, type RecordType } from "@/lib/domain";
 import { Chip } from "@/components/kit/Chip";
+import { Button } from "@/components/kit/Button";
 import { Input, Select } from "@/components/kit/Field";
 import { SegmentedControl } from "@/components/kit/SegmentedControl";
 
@@ -20,30 +16,61 @@ export interface CrmFilters {
   followUpOnly: boolean;
 }
 
+export interface FilterOption {
+  id: string;
+  label: string;
+  count: number;
+  /** Identity dot (stage/cluster color) where one exists. */
+  color?: string;
+}
+
 interface FilterBarProps {
   recordType: RecordType;
-  /** Stages offered in the table's stage filter. */
-  stages: readonly { id: string; label: string }[];
+  /**
+   * Options are derived from the records actually in the DB (see
+   * CrmWorkspace) rather than the domain constants — a cluster or rank
+   * introduced by a later import has to be filterable too.
+   */
+  stageOptions: FilterOption[];
+  clusterOptions: FilterOption[];
+  rankOptions: FilterOption[];
+  unrankedCount: number;
   filters: CrmFilters;
   onChange: (next: CrmFilters) => void;
+  onClear: () => void;
   view: "board" | "table";
   onViewChange: (view: "board" | "table") => void;
-  clusterCounts: Record<string, number>;
   followUpCount: number;
+}
+
+/** True when any filter is narrowing the list. */
+export function isFiltered(f: CrmFilters): boolean {
+  return Boolean(
+    f.search.trim() ||
+      f.cluster ||
+      f.rank ||
+      f.stage ||
+      f.owner ||
+      f.followUpOnly,
+  );
 }
 
 export function FilterBar({
   recordType,
-  stages,
+  stageOptions,
+  clusterOptions,
+  rankOptions,
+  unrankedCount,
   filters,
   onChange,
+  onClear,
   view,
   onViewChange,
-  clusterCounts,
   followUpCount,
 }: FilterBarProps) {
   const set = (patch: Partial<CrmFilters>) =>
     onChange({ ...filters, ...patch });
+  const filtered = isFiltered(filters);
 
   return (
     <div className="flex flex-col gap-3">
@@ -63,7 +90,7 @@ export function FilterBar({
           />
         </div>
 
-        {recordType === "supplier" ? (
+        {recordType === "supplier" && (rankOptions.length > 0 || unrankedCount > 0) ? (
           <div className="w-32 shrink-0">
             <Select
               value={filters.rank ?? ""}
@@ -71,12 +98,14 @@ export function FilterBar({
               aria-label="Filter by rank"
             >
               <option value="">All ranks</option>
-              {RANKS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
+              {rankOptions.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label} ({r.count})
                 </option>
               ))}
-              <option value="unranked">Unranked</option>
+              {unrankedCount > 0 ? (
+                <option value="unranked">Unranked ({unrankedCount})</option>
+              ) : null}
             </Select>
           </div>
         ) : null}
@@ -105,9 +134,9 @@ export function FilterBar({
             aria-label="Filter by stage"
           >
             <option value="">All stages</option>
-            {stages.map((s) => (
+            {stageOptions.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.label}
+                {s.label} ({s.count})
               </option>
             ))}
           </Select>
@@ -120,6 +149,13 @@ export function FilterBar({
           active={filters.followUpOnly}
           onClick={() => set({ followUpOnly: !filters.followUpOnly })}
         />
+
+        {filtered ? (
+          <Button variant="subtle" size="sm" onClick={onClear}>
+            <X size={13} aria-hidden />
+            Clear filters
+          </Button>
+        ) : null}
 
         <div className="ml-auto">
           <SegmentedControl
@@ -134,20 +170,22 @@ export function FilterBar({
         </div>
       </div>
 
-      {recordType === "supplier" ? (
+      {recordType === "supplier" && clusterOptions.length > 0 ? (
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <Chip
             label="All clusters"
             active={filters.cluster === null}
             onClick={() => set({ cluster: null })}
           />
-          {CLUSTERS.map((c) => (
+          {clusterOptions.map((c) => (
             <Chip
-              key={c}
-              label={c}
-              count={clusterCounts[c] ?? 0}
-              active={filters.cluster === c}
-              onClick={() => set({ cluster: filters.cluster === c ? null : c })}
+              key={c.id}
+              label={c.label}
+              count={c.count}
+              active={filters.cluster === c.id}
+              onClick={() =>
+                set({ cluster: filters.cluster === c.id ? null : c.id })
+              }
             />
           ))}
         </div>

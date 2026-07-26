@@ -56,9 +56,16 @@ export const api = {
       handle<{ ok: boolean }>(r),
     ),
 
-  importRecords: (records: unknown[]) =>
+  importRecords: (records: unknown[], updateStages = false) =>
     fetch("/api/records/import", {
       method: "POST",
-      ...json({ records }),
-    }).then((r) => handle<{ ok: boolean; created: number; updated: number }>(r)),
+      ...json({ records, updateStages }),
+    }).then((r) =>
+      handle<{
+        ok: boolean;
+        created: number;
+        updated: number;
+        stagesChanged: number;
+      }>(r),
+    ),
 };

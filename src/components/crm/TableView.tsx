@@ -15,6 +15,10 @@ import {
   StageBadge,
 } from "@/components/crm/badges";
 import { GlassPanel } from "@/components/kit/GlassPanel";
+import {
+  QuickActionsMenu,
+  type QuickAction,
+} from "@/components/crm/QuickActions";
 
 const RANK_ORDER: Record<string, number> = { Gold: 0, Silver: 1, Bronze: 2 };
 const PRIORITY_ORDER: Record<string, number> = { hot: 0, warm: 1, cold: 2 };
@@ -23,9 +27,17 @@ interface TableViewProps {
   records: RecordDTO[];
   recordType: RecordType;
   onSelect: (id: string) => void;
+  onQuickAction?: (record: RecordDTO, action: QuickAction) => void;
+  emptyMessage?: string;
 }
 
-export function TableView({ records, recordType, onSelect }: TableViewProps) {
+export function TableView({
+  records,
+  recordType,
+  onSelect,
+  onQuickAction,
+  emptyMessage,
+}: TableViewProps) {
   const stageOrder = Object.fromEntries(
     stagesFor(recordType).map((s, i) => [s.id, i]),
   );
@@ -137,6 +149,21 @@ export function TableView({ records, recordType, onSelect }: TableViewProps) {
       width: "60px",
       align: "right",
     },
+    ...(onQuickAction
+      ? [
+          {
+            key: "actions",
+            header: "",
+            accessor: (r) => (
+              <div className="flex justify-end">
+                <QuickActionsMenu record={r} onSelect={onQuickAction} />
+              </div>
+            ),
+            width: "48px",
+            align: "right",
+          } as Column<RecordDTO>,
+        ]
+      : []),
   ];
 
   return (
@@ -147,7 +174,7 @@ export function TableView({ records, recordType, onSelect }: TableViewProps) {
         rowKey={(r) => r.id}
         onRowClick={(r) => onSelect(r.id)}
         initialSort={{ key: "name", dir: "asc" }}
-        emptyMessage="No records match the current filters."
+        emptyMessage={emptyMessage ?? "No records match the current filters."}
       />
     </GlassPanel>
   );

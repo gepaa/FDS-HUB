@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { FileUp, Upload } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { AlertTriangle, FileUp, Upload } from "lucide-react";
 import { parseSupplierCsv, type ParsedSupplier } from "@/lib/csv";
-import type { RecordDTO } from "@/lib/domain";
+import { STAGE_MAP, type RecordDTO } from "@/lib/domain";
 import { Modal } from "@/components/kit/Modal";
 import { Button } from "@/components/kit/Button";
 
@@ -11,7 +11,7 @@ interface ImportModalProps {
   open: boolean;
   onClose: () => void;
   existing: RecordDTO[];
-  onImport: (rows: ParsedSupplier[]) => Promise<void>;
+  onImport: (rows: ParsedSupplier[], updateStages: boolean) => Promise<void>;
 }
 
 /**
@@ -24,12 +24,14 @@ export function ImportModal({ open, onClose, existing, onImport }: ImportModalPr
   const [fileName, setFileName] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [updateStages, setUpdateStages] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
     setRows(null);
     setFileName("");
     setError(null);
+    setUpdateStages(false);
   };
 
   const handleFile = async (file: File) => {
@@ -52,17 +54,30 @@ export function ImportModal({ open, onClose, existing, onImport }: ImportModalPr
     }
   };
 
-  const existingNames = new Set(existing.map((s) => s.name.trim().toLowerCase()));
+  const byName = useMemo(
+    () => new Map(existing.map((s) => [s.name.trim().toLowerCase(), s])),
+    [existing],
+  );
   const newCount = rows
-    ? rows.filter((r) => !existingNames.has(r.name.trim().toLowerCase())).length
+    ? rows.filter((r) => !byName.has(r.name.trim().toLowerCase())).length
     : 0;
   const updateCount = rows ? rows.length - newCount : 0;
+
+  /** Existing suppliers whose ladder position the CSV disagrees with. */
+  const stageConflicts = useMemo(() => {
+    if (!rows) return [];
+    return rows.flatMap((r) => {
+      const match = byName.get(r.name.trim().toLowerCase());
+      if (!match || match.status === r.status) return [];
+      return [{ name: match.name, from: match.status, to: r.status }];
+    });
+  }, [rows, byName]);
 
   const doImport = async () => {
     if (!rows) return;
     setBusy(true);
     try {
-      await onImport(rows);
+      await onImport(rows, updateStages);
       reset();
       onClose();
     } finally {
@@ -80,7 +95,14 @@ export function ImportModal({ open, onClose, existing, onImport }: ImportModalPr
       title="Import suppliers from CSV"
       footer={
         <>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              reset();
+              onClose();
+            }}
+          >
             Cancel
           </Button>
           <Button
@@ -146,6 +168,44 @@ export function ImportModal({ open, onClose, existing, onImport }: ImportModalPr
                 .join(", ")}
               {rows.length > 5 ? ` +${rows.length - 5} more` : ""}
             </p>
+          </div>
+        ) : null}
+
+        {rows && stageConflicts.length > 0 ? (
+          <div className="rounded-card border border-[var(--amber)] bg-[var(--amber-soft)] px-4 py-3">
+            <p className="flex items-center gap-2 text-sm font-medium text-amber">
+              <AlertTriangle size={14} aria-hidden />
+              {stageConflicts.length} supplier
+              {stageConflicts.length === 1 ? "" : "s"} sit at a different
+              pipeline stage in this CSV
+            </p>
+            <ul className="mt-2 flex flex-col gap-0.5 text-xs text-muted">
+              {stageConflicts.slice(0, 4).map((c) => (
+                <li key={c.name} className="truncate">
+                  {c.name}: {STAGE_MAP[c.from]?.label ?? c.from} →{" "}
+                  {STAGE_MAP[c.to]?.label ?? c.to}
+                </li>
+              ))}
+              {stageConflicts.length > 4 ? (
+                <li>+{stageConflicts.length - 4} more</li>
+              ) : null}
+            </ul>
+            <label className="mt-3 flex cursor-pointer items-start gap-2 text-xs text-ink">
+              <input
+                type="checkbox"
+                checked={updateStages}
+                onChange={(e) => setUpdateStages(e.target.checked)}
+                className="mt-0.5 accent-[var(--accent)]"
+              />
+              <span>
+                Overwrite pipeline stage from the CSV.{" "}
+                <span className="text-muted">
+                  Left off, everything else imports and the stages above stay
+                  as they are in the hub. Either way the change is written to
+                  each supplier&rsquo;s activity log.
+                </span>
+              </span>
+            </label>
           </div>
         ) : null}
       </div>
