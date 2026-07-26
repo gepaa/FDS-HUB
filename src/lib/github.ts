@@ -98,17 +98,30 @@ export async function dispatchAgentRun(args: {
   prompt: string;
   branch: string;
 }): Promise<void> {
-  await gh(`/repos/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
-    method: "POST",
-    body: JSON.stringify({
-      ref: DISPATCH_REF,
-      inputs: {
-        run_id: args.runId,
-        prompt: args.prompt,
-        branch: args.branch,
-      },
-    }),
-  });
+  try {
+    await gh(`/repos/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
+      method: "POST",
+      body: JSON.stringify({
+        ref: DISPATCH_REF,
+        inputs: {
+          run_id: args.runId,
+          prompt: args.prompt,
+          branch: args.branch,
+        },
+      }),
+    });
+  } catch (e) {
+    // GitHub only registers a workflow_dispatch workflow once the file
+    // is on the default branch, and answers a bare "Not Found" until
+    // then. Say what actually needs doing instead.
+    if (e instanceof GitHubError && e.status === 404) {
+      throw new GitHubError(
+        `${WORKFLOW_FILE} isn't on ${DISPATCH_REF} yet. GitHub only exposes a workflow for dispatch once it's on the default branch — merge the branch that adds it, then run this again.`,
+        404,
+      );
+    }
+    throw e;
+  }
 }
 
 export interface WorkflowRun {

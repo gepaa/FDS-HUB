@@ -27,16 +27,31 @@ export function Modal({
   const { sound } = useSound();
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Callers pass `onClose` as an inline arrow, so its identity changes on
+  // every render of the parent. Held in a ref, the effects below can
+  // depend on `open` alone — otherwise every keystroke inside the dialog
+  // re-ran them and the focus() below yanked the caret out of the input
+  // the operator was typing in.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Focus the panel once, when the dialog opens — not on every render.
   useEffect(() => {
     if (!open) return;
     sound("whoosh");
     panelRef.current?.focus();
+  }, [open, sound]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, sound]);
+  }, [open]);
 
   return (
     <AnimatePresence>

@@ -29,6 +29,15 @@ export function Drawer({
   const { sound } = useSound();
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // See the note in Modal.tsx: `onClose` is an inline arrow at every call
+  // site, so depending on it re-ran this effect on every keystroke and
+  // the focus() below stole the caret out of whichever field was being
+  // typed into. A ref keeps the effect keyed on `open` alone.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
     sound("whoosh");
@@ -36,14 +45,14 @@ export function Drawer({
     document.body.style.overflow = "hidden";
     panelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose, sound]);
+  }, [open, sound]);
 
   return (
     <AnimatePresence>
