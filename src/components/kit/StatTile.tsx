@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlassPanel } from "@/components/kit/GlassPanel";
@@ -9,6 +10,8 @@ interface StatTileProps {
   sub?: string;
   icon?: LucideIcon;
   tone?: "default" | "accent" | "green" | "amber" | "danger";
+  /** Drill-in target. When set, the whole tile becomes the hit area. */
+  href?: string;
   className?: string;
 }
 
@@ -30,30 +33,46 @@ export function StatTile({
   sub,
   icon: Icon,
   tone = "default",
+  href,
   className,
 }: StatTileProps) {
   const t = toneStyles[tone];
-  return (
-    <GlassPanel className={cn("p-5", className)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-[11px] font-medium tracking-wider text-muted uppercase">
-            {label}
-          </p>
-          <p className="num mt-2 text-3xl font-semibold tracking-tight text-ink">
-            {value}
-          </p>
-          {sub ? <p className="mt-1 text-xs text-muted">{sub}</p> : null}
-        </div>
-        {Icon ? (
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control"
-            style={{ background: t.bg, color: t.fg }}
-          >
-            <Icon size={18} strokeWidth={2} aria-hidden />
-          </span>
-        ) : null}
+  const body = (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="truncate text-[11px] font-medium tracking-wider text-muted uppercase">
+          {label}
+        </p>
+        <p className="num mt-2 text-3xl font-semibold tracking-tight text-ink">
+          {value}
+        </p>
+        {sub ? <p className="mt-1 text-xs text-muted">{sub}</p> : null}
       </div>
-    </GlassPanel>
+      {Icon ? (
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control"
+          style={{ background: t.bg, color: t.fg }}
+        >
+          <Icon size={18} strokeWidth={2} aria-hidden />
+        </span>
+      ) : null}
+    </div>
+  );
+
+  if (href) {
+    return (
+      <GlassPanel className={className}>
+        <Link
+          href={href}
+          className="press block p-5 hover:bg-[var(--panel-soft)]"
+        >
+          {body}
+        </Link>
+      </GlassPanel>
+    );
+  }
+
+  return (
+    <GlassPanel className={cn("p-5", className)}>{body}</GlassPanel>
   );
 }

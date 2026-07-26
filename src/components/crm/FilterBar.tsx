@@ -96,22 +96,22 @@ export function FilterBar({
           </Select>
         </div>
 
-        {view === "table" ? (
-          <div className="w-44 shrink-0">
-            <Select
-              value={filters.stage ?? ""}
-              onChange={(e) => set({ stage: e.target.value || null })}
-              aria-label="Filter by stage"
-            >
-              <option value="">All stages</option>
-              {stages.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-        ) : null}
+        {/* Shown in both views — the filter applies in both, so hiding
+            it on the board left an invisible active filter. */}
+        <div className="w-44 shrink-0">
+          <Select
+            value={filters.stage ?? ""}
+            onChange={(e) => set({ stage: e.target.value || null })}
+            aria-label="Filter by stage"
+          >
+            <option value="">All stages</option>
+            {stages.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </Select>
+        </div>
 
         <Chip
           label={`Needs follow-up`}

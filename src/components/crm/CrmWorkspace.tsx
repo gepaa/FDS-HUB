@@ -48,6 +48,8 @@ interface CrmWorkspaceProps {
   initial: RecordDTO[];
   initialRecordId?: string;
   initialCreate?: boolean;
+  /** Stage to pre-filter on, from /crm?stage=<id> (pipeline drill-in). */
+  initialStage?: string;
 }
 
 const defaultFilters: CrmFilters = {
@@ -65,6 +67,7 @@ export function CrmWorkspace({
   initial,
   initialRecordId,
   initialCreate,
+  initialStage,
 }: CrmWorkspaceProps) {
   const { toast } = useToast();
   const [records, setRecords] = useState<RecordDTO[]>(initial);
@@ -91,6 +94,14 @@ export function CrmWorkspace({
   useEffect(() => {
     if (initialCreate) setCreating(true);
   }, [initialCreate]);
+
+  // /crm?stage=<id> — the dashboard pipeline drills in here. Closed
+  // stages live in their own scope, so send those to the closed book.
+  useEffect(() => {
+    if (!initialStage) return;
+    setFilters((f) => ({ ...f, stage: initialStage as StageId }));
+    setScope(CLOSED_SUPPLIER_STAGE_SET.has(initialStage) ? "closed" : "pipeline");
+  }, [initialStage]);
 
   const selected = useMemo(
     () => records.find((r) => r.id === selectedId) ?? null,
@@ -180,12 +191,13 @@ export function CrmWorkspace({
         return false;
       }
       if (filters.owner && r.owner !== filters.owner) return false;
-      if (view === "table" && filters.stage && r.status !== filters.stage)
-        return false;
+      // Applies in both views. It used to be gated on the table, so a
+      // stage filter set there went silently inert on the board.
+      if (filters.stage && r.status !== filters.stage) return false;
       if (filters.followUpOnly && !needsFollowUp(r)) return false;
       return true;
     });
-  }, [pipelineRecords, filters, view]);
+  }, [pipelineRecords, filters]);
 
   const pipelineStages = isSupplier
     ? ACTIVE_SUPPLIER_STAGES
