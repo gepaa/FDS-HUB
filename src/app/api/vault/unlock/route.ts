@@ -31,12 +31,12 @@ export async function POST(request: Request) {
 
   const parsed = input.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return Response.json({ error: "Passphrase required" }, { status: 400 });
+    return Response.json({ error: "Password required" }, { status: 400 });
   }
 
   if (!passphraseMatches(parsed.data.passphrase)) {
     // Deliberately vague, and no hint about length or near-misses.
-    return Response.json({ error: "Incorrect passphrase" }, { status: 401 });
+    return Response.json({ error: "Incorrect password" }, { status: 401 });
   }
 
   await grantVaultSession();

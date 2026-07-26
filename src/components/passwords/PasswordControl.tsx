@@ -107,7 +107,7 @@ export function PasswordControl({
         body: JSON.stringify({ passphrase }),
       });
       if (!res.ok) {
-        toast({ title: (await res.json()).error ?? "Incorrect passphrase" });
+        toast({ title: (await res.json()).error ?? "Incorrect password" });
         return;
       }
       setPassphrase("");
@@ -298,7 +298,7 @@ export function PasswordControl({
           </div>
           <form onSubmit={unlock} className="mt-4 flex flex-col gap-2">
             <label htmlFor="vault-pass" className="sr-only">
-              Password Control passphrase
+              Vault password
             </label>
             <input
               id="vault-pass"
@@ -306,7 +306,7 @@ export function PasswordControl({
               autoComplete="off"
               value={passphrase}
               onChange={(e) => setPassphrase(e.target.value)}
-              placeholder="Passphrase"
+              placeholder="Password"
               className="surface-muted h-10 w-full rounded-control px-3 text-sm text-ink outline-none focus:ring-2 focus:ring-[var(--accent)]"
             />
             <Button type="submit" disabled={unlocking || !passphrase.trim()}>
