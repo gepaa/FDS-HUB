@@ -373,3 +373,46 @@ model CredentialReveal {
 
   @@index([credentialId, createdAt])
 }
+
+// ---------------- Self-modification panel ----------------
+
+// One row per coding-agent run dispatched from /self-modify.
+//
+// The app never runs the agent itself (serverless: no checkout, no git).
+// It triggers a GitHub Actions workflow, which does the work on a fresh
+// branch and opens a PR; this table is the hub's memory of that run so
+// history survives the panel being closed (spec Step 4.5).
+//
+// `status` mirrors the workflow: queued -> running -> succeeded|failed,
+// plus `applied` once a human has merged the PR. Nothing here is ever
+// written speculatively — a row only advances when GitHub says so.
+model AgentRun {
+  id     String @id @default(cuid())
+  prompt String
+  status String @default("queued")
+  actor  String @default("you")
+
+  // GitHub side of the run. Null until the workflow reports back.
+  branch        String?
+  workflowRunId String?
+  runUrl        String?
+  prNumber      Int?
+  prUrl         String?
+
+  // Review payload: the diff the human approves (or the failure reason).
+  diff         String?
+  filesChanged Int?
+  additions    Int?
+  deletions    Int?
+  error        String?
+
+  // Set only by an explicit "Apply & deploy" — never automatically.
+  appliedAt DateTime?
+  appliedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([status])
+}

@@ -1,0 +1,134 @@
+# Self-modification panel — the runner behind /self-modify.
+#
+# The hub itself is serverless and cannot check out a repo or run a
+# coding agent for minutes, so the panel dispatches this workflow and
+# reads the result back through the GitHub API (src/lib/github.ts).
+#
+# Two rules this file enforces, regardless of what the prompt asks for:
+#   1. Work only ever lands on an `agent/*` branch. Nothing here pushes
+#      to main — merging is a separate, human-initiated action in the
+#      panel ("Apply & deploy").
+#   2. The panel always dispatches with ref=main, so the *definition*
+#      that runs is the one already reviewed on main. An agent may
+#      propose edits to this file, but they cannot take effect until a
+#      human has merged them.
+
+name: agent-run
+
+# The panel matches a dispatch to its run by looking for the branch in
+# the run name — keep the branch in run-name if you change this.
+run-name: "agent-run ${{ inputs.branch }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "AgentRun id from the hub (for traceability)"
+        required: true
+        type: string
+      prompt:
+        description: "What the operator asked for"
+        required: true
+        type: string
+      branch:
+        description: "Branch to create — must start with agent/"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      # Refuse anything that isn't an agent branch. Belt and braces: the
+      # hub already derives this name, but the workflow must not depend
+      # on its caller behaving.
+      - name: Guard the branch name
+        run: |
+          case "${{ inputs.branch }}" in
+            agent/*) echo "Branch OK: ${{ inputs.branch }}" ;;
+            *) echo "::error::Refusing to run: branch must start with agent/" ; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create the working branch
+        run: git switch -c "${{ inputs.branch }}"
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are making a change to the FDS Operations HQ app, in this
+            repository. The operator asked for:
+
+            ${{ inputs.prompt }}
+
+            Make the change directly in the working tree. Follow the
+            existing conventions in AGENTS.md and the surrounding code.
+            Do not commit, push, or open a pull request — the workflow
+            does that. Do not change the database schema unless the
+            request clearly requires it; migrations here are additive
+            only. If the request is unclear or unsafe, make no changes
+            and explain why instead.
+          claude_args: "--max-turns 30"
+
+      # An agent that changed nothing is a real outcome, not a failure to
+      # paper over. Say so plainly and stop before opening an empty PR.
+      - name: Detect changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Claude made no file changes for this prompt."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git status --short
+          fi
+
+      - name: Commit and push the branch
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "FDS Agent Harness"
+          git config user.email "agent@farmerdirectsupply.invalid"
+          git add -A
+          git commit -m "Agent run: ${{ inputs.prompt }}" \
+                     -m "Dispatched from the hub's self-modification panel." \
+                     -m "AgentRun: ${{ inputs.run_id }}"
+          # Explicit refspec: this can only ever write the agent branch.
+          git push origin "HEAD:refs/heads/${{ inputs.branch }}"
+
+      - name: Open the pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "${{ inputs.branch }}" \
+            --title "Agent run: ${{ inputs.prompt }}" \
+            --body "$(cat <<'BODY'
+          Opened by the FDS Hub self-modification panel.
+
+          **Prompt**
+          ${{ inputs.prompt }}
+
+          **AgentRun id:** `${{ inputs.run_id }}`
+
+          Review the diff in the hub and use **Apply & deploy** there to
+          merge. Merging this PR deploys to production.
+          BODY
+          )"
+
+      - name: Report no-op
+        if: steps.changes.outputs.changed != 'true'
+        run: |
+          echo "::error::No changes were produced, so no branch or PR was created."
+          exit 1
