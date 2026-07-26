@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  Bot,
   CalendarDays,
   GaugeCircle,
   GitCommitVertical,
@@ -90,6 +91,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: MessagesSquare,
     section: "hq",
     description: "Your AI employee — ask anything; it executes in the hub.",
+  },
+  {
+    href: "/self-modify",
+    label: "Self-Modify",
+    icon: Bot,
+    section: "hq",
+    description: "Ask for a change to this app; review the diff before it ships.",
   },
   {
     href: "/sops",

@@ -33,6 +33,22 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
 
+  // ---- Self-modification panel (/self-modify) ----
+  // The hub runs on serverless: no checkout, no git, no minutes-long
+  // processes. So the panel does NOT run a coding agent in-process —
+  // it dispatches the agent-run workflow on GitHub Actions, which owns
+  // the checkout and pushes a branch. See src/lib/github.ts.
+  //
+  // GITHUB_TOKEN: PAT with `repo` + `workflow` scope. Unset → the panel
+  // shows "Connect your agent token" and refuses to dispatch. It never
+  // simulates a run.
+  // ANTHROPIC_API_KEY for the run itself is a GitHub Actions *secret*,
+  // not an app env var — the key never passes through this app.
+  GITHUB_TOKEN: z.string().optional(),
+  // The single repo the panel may target (owner/name). This is the
+  // scope guard: a prompt cannot redirect a run at another project.
+  GITHUB_REPO: z.string().default("gepaa/FDS-HUB"),
+
   // ---- HQ brain: the in-app AI assistant (src/lib/agent) ----
   // AI_PROVIDER picks the backend; AI_API_KEY is its credential.
   //   groq       — free tier, fast (console.groq.com)  ← recommended free

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Archive,
   BadgeCheck,
+  Bot,
   Clock,
   Download,
   Medal,
@@ -577,13 +579,20 @@ export function CrmWorkspace({
               </Button>
             </>
           ) : null}
+          {/* Change the CRM itself — a real agent run, reviewed before
+              it ships (see /self-modify). */}
+          <Link
+            href="/self-modify"
+            className="press inline-flex h-8 items-center gap-1.5 rounded-control border border-hairline bg-[var(--panel)] px-3 text-[13px] font-medium text-ink shadow-sm hover:border-[var(--hairline-strong)]"
+            title="Ask for a change to the CRM itself"
+          >
+            <Bot size={14} aria-hidden />
+            Change this panel
+          </Link>
           <Button
             variant="primary"
             size="sm"
-            onClick={() => {
-              setSelectedId(null);
-              setCreating(true);
-            }}
+            onClick={startCreate}
           >
             <Plus size={14} aria-hidden />
             {recordType === "lead" ? "New lead" : "New supplier"}
