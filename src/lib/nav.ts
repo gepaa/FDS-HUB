@@ -15,6 +15,7 @@ import {
   Wallet,
   Inbox,
   type LucideIcon,
+  KeyRound,
 } from "lucide-react";
 
 export interface NavItem {
@@ -53,6 +54,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
     section: "hq",
     description: "Supplier + lead pipelines — status, context, next action.",
+  },
+  {
+    href: "/passwords",
+    label: "Password Control",
+    icon: KeyRound,
+    section: "hq",
+    description: "Shared account credentials — encrypted, reveal one at a time.",
   },
   {
     href: "/approvals",

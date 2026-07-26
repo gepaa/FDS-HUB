@@ -65,8 +65,11 @@ export function getIntegrations(): IntegrationStatus[] {
       description:
         "Post to and read from designated channels; surface notifications in the comms hub.",
       stage: 4,
-      connected: Boolean(env.DISCORD_BOT_TOKEN),
-      requiredEnv: ["DISCORD_BOT_TOKEN", "DISCORD_WEBHOOK_URL", "DISCORD_CHANNEL_IDS"],
+      // A webhook alone is a working connection — it's what Ad Budget
+      // Watch posts through. Requiring the bot token reported a live
+      // webhook-only setup as disconnected.
+      connected: Boolean(env.DISCORD_BOT_TOKEN || env.DISCORD_WEBHOOK_URL),
+      requiredEnv: ["DISCORD_WEBHOOK_URL", "DISCORD_BOT_TOKEN", "DISCORD_CHANNEL_IDS"],
       setupUrl: "https://discord.com/developers/applications",
     },
     {

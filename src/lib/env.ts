@@ -48,6 +48,16 @@ const envSchema = z.object({
   AI_MODEL: z.string().optional(), // override the provider default
   AI_BASE_URL: z.string().optional(), // only for AI_PROVIDER=custom
 
+  // ---- Password Control vault ----
+  // CREDENTIAL_KEY seals every stored secret (AES-256-GCM, base64 of
+  // 32 bytes: `openssl rand -base64 32`). It lives ONLY here — losing
+  // it makes the vault unreadable, leaking it makes a DB dump readable.
+  // PASSWORD_CONTROL_PASSPHRASE is the second gate in front of the
+  // page, on top of the team login. Either unset → the vault refuses
+  // to open and says so.
+  CREDENTIAL_KEY: z.string().optional(),
+  PASSWORD_CONTROL_PASSPHRASE: z.string().optional(),
+
   // ---- HQ engine: bearer token for the Claude agent's API access ----
   // (docs/FDS_HQ_Decisions.md D4 — the agent↔app audit choke-point)
   AGENT_API_KEY: z.string().optional(),

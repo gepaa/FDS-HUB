@@ -333,3 +333,43 @@ model AlertLog {
 
   @@index([accountId, kind, createdAt])
 }
+
+// ---------------- Password Control ----------------
+
+// Credential vault. The secret is NEVER stored in the clear: `secret`
+// holds an AES-256-GCM payload (see src/lib/secret-box.ts) sealed with
+// CREDENTIAL_KEY, which lives only in the environment. A database dump
+// on its own yields nothing readable.
+//
+// Everything except the secret is plain, so the list can render — the
+// operator sees what an account is and who it's for without unsealing
+// anything.
+model Credential {
+  id        String   @id @default(cuid())
+  service   String // "Shopify", "Royal Mail", ...
+  label     String? // which account, when there are several
+  username  String?
+  secret    String // sealed blob, never plaintext
+  url       String?
+  category  String   @default("Other")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reveals CredentialReveal[]
+
+  @@index([service])
+  @@index([category])
+}
+
+// One row per unseal. The point of a vault is knowing when something
+// came out of it.
+model CredentialReveal {
+  id           String     @id @default(cuid())
+  credentialId String
+  credential   Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  actor        String     @default("you")
+  createdAt    DateTime   @default(now())
+
+  @@index([credentialId, createdAt])
+}
