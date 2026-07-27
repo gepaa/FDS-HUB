@@ -62,6 +62,16 @@ export function SelfModifyPanel({ initialRuns, connected, repo }: Props) {
 
   const open = runs.find((r) => r.id === openId) ?? null;
 
+  // Progress is counted from the steps GitHub reports, so it can only
+  // ever reflect work that actually happened.
+  const doneSteps = steps.filter((s) => s.conclusion !== null).length;
+  const percent =
+    steps.length === 0
+      ? 0
+      : open?.status === "applied"
+        ? 100
+        : Math.round((doneSteps / steps.length) * 100);
+
   const replace = useCallback(
     (dto: AgentRunDTO) =>
       setRuns((prev) => prev.map((r) => (r.id === dto.id ? dto : r))),
@@ -336,9 +346,46 @@ export function SelfModifyPanel({ initialRuns, connected, repo }: Props) {
 
           {/* Live console — real workflow steps, nothing synthesised. */}
           <GlassPanel className="flex flex-col gap-2 p-4">
-            <h3 className="text-[11px] font-semibold tracking-wider text-muted uppercase">
-              Run console
-            </h3>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-[11px] font-semibold tracking-wider text-muted uppercase">
+                Run console
+              </h3>
+              {/* Percentage is finished steps ÷ steps GitHub has told us
+                  about — a real count, not a timer pretending to know. */}
+              {steps.length > 0 ? (
+                <span className="flex items-center gap-2 text-[11px] text-muted">
+                  {LIVE.has(open.status) ? (
+                    <Loader2 size={11} aria-hidden className="animate-spin" />
+                  ) : null}
+                  <span className="num">{percent}%</span>
+                  <span>
+                    {doneSteps}/{steps.length} steps
+                  </span>
+                </span>
+              ) : null}
+            </div>
+            {steps.length > 0 ? (
+              <div
+                role="progressbar"
+                aria-valuenow={percent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Run progress"
+                className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--panel-soft)]"
+              >
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-[width] duration-500",
+                    open.status === "failed"
+                      ? "bg-[var(--red)]"
+                      : open.status === "applied"
+                        ? "bg-[var(--green)]"
+                        : "bg-[var(--accent)]",
+                  )}
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+            ) : null}
             <div
               ref={consoleRef}
               className="surface-muted max-h-56 overflow-y-auto rounded-card p-3 font-mono text-[11px] leading-relaxed"

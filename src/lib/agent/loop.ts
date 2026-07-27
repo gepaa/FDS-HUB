@@ -27,8 +27,10 @@ export async function runAgent(opts: {
   signal?: AbortSignal;
   /** Model picked in the Assistant's switcher; ignored unless allowlisted. */
   model?: string | null;
+  /** The provider's own model list, so a new model isn't wrongly refused. */
+  liveModels?: { id: string }[] | null;
 }): Promise<AgentRunResult> {
-  const provider = getProvider(opts.model);
+  const provider = getProvider(opts.model, opts.liveModels);
   if (!provider) {
     throw new Error(
       "No AI provider configured. Set AI_PROVIDER + AI_API_KEY (free: Groq or Google AI Studio) — see Settings → Integrations.",

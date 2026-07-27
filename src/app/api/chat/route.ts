@@ -2,6 +2,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveActor } from "@/lib/agent-auth";
 import { runAgent } from "@/lib/agent/loop";
+import { getCachedProviderModels } from "@/lib/agent/provider";
 import type { AgentEvent } from "@/lib/agent/types";
 
 export const dynamic = "force-dynamic";
@@ -113,6 +114,7 @@ export async function POST(request: Request) {
           emit: (e) => send(e),
           signal: request.signal,
           model: parsed.data.model ?? null,
+          liveModels: parsed.data.model ? await getCachedProviderModels() : null,
         });
         const saved = await prisma.chatMessage.create({
           data: {

@@ -15,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/kit/Button";
+import { Select } from "@/components/kit/Field";
 import { useToast } from "@/components/kit/Toast";
 import { cn, shortDate } from "@/lib/utils";
 
@@ -142,6 +143,10 @@ export function ChatWorkspace({
 }) {
   const { toast } = useToast();
   const [model, setModel] = useState(models?.current ?? "");
+  // Seeded with the curated list so the picker renders instantly, then
+  // replaced by whatever the provider actually offers.
+  const [choices, setChoices] = useState(models?.choices ?? []);
+  const [loadingModels, setLoadingModels] = useState(Boolean(models));
   const [sessions, setSessions] = useState(initialSessions);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -156,6 +161,28 @@ export function ChatWorkspace({
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
   }, [messages.length, streamText, liveTools.length]);
+
+  // Ask the provider what it actually offers, so the picker isn't limited
+  // to a hardcoded shortlist that goes stale on every model retirement.
+  useEffect(() => {
+    if (!models) return;
+    let cancelled = false;
+    fetch("/api/chat/models")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.models?.length) return;
+        setChoices(data.models as { id: string; label: string }[]);
+      })
+      .catch(() => {
+        // Keep the curated fallback already on screen.
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingModels(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [models]);
 
   const openSession = useCallback(async (id: string | null) => {
     setActiveId(id);
@@ -330,7 +357,10 @@ export function ChatWorkspace({
         textareaRef.current?.focus();
       }
     },
-    [activeId, busy, input, toast],
+    // `model` matters: without it the callback closes over whichever
+    // model was selected when it was created, so switching model would
+    // do nothing until something else forced a re-create.
+    [activeId, busy, input, toast, model],
   );
 
   if (!aiConfigured) {
@@ -425,28 +455,39 @@ export function ChatWorkspace({
           )}
         </div>
         {models ? (
-          <div className="flex flex-col gap-1.5 border-t border-hairline px-3 py-2.5">
-            <label
-              htmlFor="assistant-model"
-              className="flex items-center gap-1.5 text-[10px] tracking-wider text-muted uppercase"
-            >
-              <span className="inline-block size-1.5 rounded-full bg-green" />
-              {models.provider}
-            </label>
-            <select
+          <div className="flex flex-col gap-2 border-t border-hairline px-3 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold tracking-wider text-muted uppercase">
+                <span className="inline-block size-1.5 rounded-full bg-green" />
+                {models.provider}
+              </span>
+              {loadingModels ? (
+                <Loader2
+                  size={11}
+                  aria-hidden
+                  className="animate-spin text-muted"
+                />
+              ) : (
+                <span className="num text-[10px] text-muted">
+                  {choices.length}
+                </span>
+              )}
+            </div>
+            <Select
               id="assistant-model"
+              aria-label="Assistant model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full rounded-control border border-hairline bg-[var(--panel-soft)] px-2 py-1.5 text-[11px] text-ink outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              className="h-9 text-[12px]"
             >
-              {models.choices.map((c) => (
+              {choices.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
                 </option>
               ))}
-            </select>
-            <p className="text-[10px] text-muted">
-              Applies to your next message. Each reply records the model that
+            </Select>
+            <p className="text-[10px] leading-relaxed text-muted">
+              Applies to your next message. Every reply records the model that
               produced it.
             </p>
           </div>

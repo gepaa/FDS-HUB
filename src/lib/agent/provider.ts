@@ -75,8 +75,73 @@ export const MODEL_CHOICES: Record<string, { id: string; label: string }[]> = {
   ],
 };
 
-/** True when `model` is offered for the configured provider. */
-export function isAllowedModel(provider: string, model: string): boolean {
+/**
+ * Every model the configured provider actually offers, asked of the
+ * provider itself rather than hardcoded here.
+ *
+ * The static MODEL_CHOICES list above is only a fallback: it goes stale
+ * the moment a provider retires or renames something (Google has done
+ * exactly that twice), which is how you end up picking a model that
+ * 404s. Returns null if the provider can't be reached.
+ */
+export async function fetchProviderModels(): Promise<
+  { id: string; label: string }[] | null
+> {
+  const cfg = resolveProviderConfig();
+  if (!cfg) return null;
+  const key = env.AI_API_KEY ?? env.ANTHROPIC_API_KEY;
+  if (!key) return null;
+
+  try {
+    if (cfg.provider === "anthropic") {
+      const res = await fetch("https://api.anthropic.com/v1/models?limit=100", {
+        headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
+        cache: "no-store",
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as {
+        data?: { id: string; display_name?: string }[];
+      };
+      return (data.data ?? []).map((m) => ({
+        id: m.id,
+        label: m.display_name ?? m.id,
+      }));
+    }
+
+    const baseUrl =
+      cfg.provider === "custom"
+        ? env.AI_BASE_URL!.replace(/\/$/, "")
+        : OPENAI_COMPAT_PRESETS[cfg.provider]?.baseUrl;
+    if (!baseUrl) return null;
+    const res = await fetch(`${baseUrl}/models`, {
+      headers: { Authorization: `Bearer ${key}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { data?: { id: string }[] };
+    const ids = (data.data ?? []).map((m) => m.id).filter(Boolean);
+    // Providers list embedding/TTS/vision-only models too; those can't
+    // drive a tool loop, so keep them out of a picker that implies they can.
+    const usable = ids.filter(
+      (id) => !/embed|whisper|tts|guard|moderation|rerank|image|vision-only/i.test(id),
+    );
+    return usable.sort().map((id) => ({ id, label: id }));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when `model` is offered for the configured provider. `live` is
+ * the provider's own list when we have it, so a newly released model
+ * isn't rejected just because this file predates it.
+ */
+export function isAllowedModel(
+  provider: string,
+  model: string,
+  live?: { id: string }[] | null,
+): boolean {
+  if (live?.length) return live.some((m) => m.id === model);
   return (MODEL_CHOICES[provider] ?? []).some((m) => m.id === model);
 }
 
@@ -100,9 +165,24 @@ export function listModelChoices(): {
   return { provider: cfg.provider, current: cfg.model, choices: withCurrent };
 }
 
+/** Provider model lists change rarely; don't re-ask on every message. */
+let modelCache: { at: number; models: { id: string; label: string }[] } | null =
+  null;
+
+export async function getCachedProviderModels(): Promise<
+  { id: string; label: string }[] | null
+> {
+  if (modelCache && Date.now() - modelCache.at < 10 * 60_000)
+    return modelCache.models;
+  const fresh = await fetchProviderModels();
+  if (fresh?.length) modelCache = { at: Date.now(), models: fresh };
+  return fresh ?? modelCache?.models ?? null;
+}
+
 /** Which backend is configured, or null → the chat shows setup help. */
 export function resolveProviderConfig(
   modelOverride?: string | null,
+  live?: { id: string }[] | null,
 ): ResolvedProviderConfig | null {
   const p =
     env.AI_PROVIDER ??
@@ -110,7 +190,9 @@ export function resolveProviderConfig(
   if (!p) return null;
   // An override only counts if it's on the allowlist for this provider.
   const pick = (fallback: string) =>
-    modelOverride && isAllowedModel(p, modelOverride) ? modelOverride : fallback;
+    modelOverride && isAllowedModel(p, modelOverride, live)
+      ? modelOverride
+      : fallback;
   if (p === "anthropic") {
     if (!(env.AI_API_KEY || env.ANTHROPIC_API_KEY)) return null;
     return { provider: p, model: pick(env.AI_MODEL ?? "claude-opus-4-8") };
@@ -126,8 +208,11 @@ export function resolveProviderConfig(
   };
 }
 
-export function getProvider(modelOverride?: string | null): ModelProvider | null {
-  const cfg = resolveProviderConfig(modelOverride);
+export function getProvider(
+  modelOverride?: string | null,
+  live?: { id: string }[] | null,
+): ModelProvider | null {
+  const cfg = resolveProviderConfig(modelOverride, live);
   if (!cfg) return null;
   if (cfg.provider === "anthropic") return anthropicProvider(cfg.model);
   const baseUrl =
