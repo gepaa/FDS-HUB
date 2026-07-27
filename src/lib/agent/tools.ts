@@ -8,6 +8,7 @@ import {
   type RecordType,
 } from "@/lib/domain";
 import { listSops, readSop } from "@/lib/sops";
+import { branchFor, dispatchAgentRun, isConnected } from "@/lib/github";
 import {
   getShopifyCustomers,
   getShopifyOverview,
@@ -696,6 +697,70 @@ const TOOLS: ToolImpl[] = [
         },
       });
       return { content: "Posted.", summary: `${input.kind} posted` };
+    },
+  },
+  {
+    def: {
+      name: "change_the_app",
+      description:
+        "Change this app's own code. Use for any request to add/fix/alter a page, panel, field, wording, colour or behaviour of the hub itself — do NOT just explain how to do it, and do NOT queue a task instead. Dispatches a real Claude Code run on a branch, which opens a pull request. Nothing reaches the live site until the human presses 'Apply & deploy' in Self-Modify, so it is safe to use whenever the user asks for an app change.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          change: {
+            type: "string",
+            description:
+              "The change, in full sentences, precise enough for a coding agent that cannot ask follow-up questions. Include the exact wording/values the user asked for.",
+          },
+        },
+        required: ["change"],
+      },
+    },
+    async run(input) {
+      const change = String(input.change ?? "").trim();
+      if (change.length < 10) {
+        return {
+          content: "Describe the change in a sentence or two first.",
+          summary: "change too vague",
+        };
+      }
+      if (!isConnected()) {
+        return {
+          content:
+            "No agent token is configured, so I can't dispatch a real code change. Set GITHUB_TOKEN in the hub's environment. I have NOT made this change.",
+          summary: "not connected",
+        };
+      }
+
+      // Same path the Self-Modify panel uses, so runs from chat land in
+      // the same history and behind the same review gate.
+      const run = await prisma.agentRun.create({
+        data: { prompt: change, actor: "you", status: "queued" },
+      });
+      const branch = branchFor(run.id);
+      try {
+        await dispatchAgentRun({ runId: run.id, prompt: change, branch });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "dispatch failed";
+        await prisma.agentRun.update({
+          where: { id: run.id },
+          data: { status: "failed", error: message },
+        });
+        return {
+          content: `Dispatch failed: ${message}. The change has NOT been made.`,
+          summary: "dispatch failed",
+        };
+      }
+      await prisma.agentRun.update({ where: { id: run.id }, data: { branch } });
+      return {
+        content: j({
+          runId: run.id,
+          branch,
+          status: "queued",
+          note: "A real run is now working on this branch and will open a pull request. It takes a few minutes. Tell the user to review the diff in Self-Modify and press 'Apply & deploy' to ship it — you cannot ship it yourself.",
+        }),
+        summary: `dispatched: ${change.slice(0, 60)}`,
+      };
     },
   },
 ];
