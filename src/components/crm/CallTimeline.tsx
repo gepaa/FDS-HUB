@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   PhoneIncoming,
   PhoneOutgoing,
@@ -42,6 +43,7 @@ export function CallTimeline({ recordId, refreshKey = 0 }: Props) {
 
 function CallList({ recordId }: { recordId: string }) {
   const [calls, setCalls] = useState<CallSummaryDTO[] | null>(null);
+  const [disabled, setDisabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -53,8 +55,10 @@ function CallList({ recordId }: { recordId: string }) {
         if (!r.ok) throw new Error(`Could not load calls (${r.status})`);
         return r.json();
       })
-      .then((data: { calls: CallSummaryDTO[] }) => {
-        if (!cancelled) setCalls(data.calls);
+      .then((data: { calls: CallSummaryDTO[]; disabled?: boolean }) => {
+        if (cancelled) return;
+        setDisabled(Boolean(data.disabled));
+        setCalls(data.calls);
       })
       .catch((e: Error) => {
         if (!cancelled) setError(e.message);
@@ -78,11 +82,22 @@ function CallList({ recordId }: { recordId: string }) {
     );
   }
 
+  if (disabled) {
+    return (
+      <p className="text-sm text-muted">
+        Phone sync is off.{" "}
+        <Link href="/integrations/quo" className="underline hover:text-ink">
+          Connect Quo
+        </Link>{" "}
+        and every call with this lead lands here automatically.
+      </p>
+    );
+  }
+
   if (calls.length === 0) {
     return (
       <p className="text-sm text-muted">
-        No calls yet. Once Quo is connected, every call with this lead appears
-        here automatically.
+        No calls yet. Every call with this lead will appear here automatically.
       </p>
     );
   }

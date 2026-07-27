@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { resolveActor } from "@/lib/agent-auth";
 import { toCallSummaryDTO } from "@/lib/quo/dto";
+import { quoStatus } from "@/lib/quo/config";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,15 @@ export async function GET(
 ) {
   const actor = resolveActor(request);
   if (actor instanceof Response) return actor;
+
+  // The call tables are part of an optional integration. If it is off —
+  // including on a deployment where the migration has not been applied
+  // yet — answer honestly with nothing rather than querying tables that
+  // may not exist. The CRM drawer must not break because a telephony
+  // integration is not set up.
+  if (!quoStatus().enabled) {
+    return Response.json({ calls: [], nextCursor: null, disabled: true });
+  }
 
   const { id } = await params;
   const url = new URL(request.url);

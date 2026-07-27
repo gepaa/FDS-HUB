@@ -38,19 +38,49 @@ export async function GET(request: Request) {
   if (actor instanceof Response) return actor;
 
   const status = quoStatus();
-  const [metrics, errors, queue, lastWebhook, lastReconcile, lastBackfill] =
-    await Promise.all([
+
+  // Every read below touches the integration's own tables. On a
+  // deployment where the migration has not been applied yet they do not
+  // exist, and this page is precisely where someone would go to find
+  // out why — so it must render and say so, not 500.
+  let stats;
+  try {
+    stats = await Promise.all([
       getMetrics(),
       recentErrors(8),
       queueStats(),
       getState<{ at?: string; eventType?: string }>(STATE_KEYS.lastWebhook),
       getState<{ at?: string; imported?: number }>(STATE_KEYS.lastReconcile),
       getState<{ at?: string; imported?: number }>(STATE_KEYS.lastBackfill),
-    ]);
+    ] as const);
+  } catch {
+    return Response.json({
+      enabled: status.enabled,
+      apiVersion: QUO_API_VERSION,
+      apiKeyConfigured: Boolean(env.QUO_API_KEY),
+      webhookSecretConfigured: Boolean(env.QUO_WEBHOOK_SECRET),
+      extractionEnabled: status.canExtract,
+      missing: [...status.missing, "DATABASE_MIGRATION"],
+      migrationApplied: false,
+      phoneNumberIds: syncedPhoneNumberIds(),
+      subscribedEvents: SUBSCRIBED_EVENTS,
+      recordingStorageMode: env.QUO_RECORDING_STORAGE_MODE,
+      metrics: {},
+      queue: {},
+      errors: { events: [], jobs: [] },
+      lastWebhookAt: null,
+      lastReconcileAt: null,
+      lastBackfillAt: null,
+    });
+  }
+
+  const [metrics, errors, queue, lastWebhook, lastReconcile, lastBackfill] =
+    stats;
 
   return Response.json({
     enabled: status.enabled,
     apiVersion: QUO_API_VERSION,
+    migrationApplied: true,
     // Presence only — never the value.
     apiKeyConfigured: Boolean(env.QUO_API_KEY),
     webhookSecretConfigured: Boolean(env.QUO_WEBHOOK_SECRET),
