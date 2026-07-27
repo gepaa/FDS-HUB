@@ -122,16 +122,26 @@ function AssistantAvatar() {
   );
 }
 
+export interface ModelChoices {
+  provider: string;
+  current: string;
+  choices: { id: string; label: string }[];
+}
+
 export function ChatWorkspace({
   initialSessions,
   aiConfigured,
   modelLabel,
+  models = null,
 }: {
   initialSessions: ChatSessionDTO[];
   aiConfigured: boolean;
   modelLabel: string | null;
+  /** Null when no backend is configured — then the picker is hidden. */
+  models?: ModelChoices | null;
 }) {
   const { toast } = useToast();
+  const [model, setModel] = useState(models?.current ?? "");
   const [sessions, setSessions] = useState(initialSessions);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -211,7 +221,11 @@ export function ChatWorkspace({
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: activeId ?? undefined, message: body }),
+          body: JSON.stringify({
+            sessionId: activeId ?? undefined,
+            message: body,
+            model: model || undefined,
+          }),
         });
         if (!res.ok || !res.body) {
           const err = await res.json().catch(() => null);
@@ -410,7 +424,33 @@ export function ChatWorkspace({
             ))
           )}
         </div>
-        {modelLabel ? (
+        {models ? (
+          <div className="flex flex-col gap-1.5 border-t border-hairline px-3 py-2.5">
+            <label
+              htmlFor="assistant-model"
+              className="flex items-center gap-1.5 text-[10px] tracking-wider text-muted uppercase"
+            >
+              <span className="inline-block size-1.5 rounded-full bg-green" />
+              {models.provider}
+            </label>
+            <select
+              id="assistant-model"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="w-full rounded-control border border-hairline bg-[var(--panel-soft)] px-2 py-1.5 text-[11px] text-ink outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            >
+              {models.choices.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-muted">
+              Applies to your next message. Each reply records the model that
+              produced it.
+            </p>
+          </div>
+        ) : modelLabel ? (
           <div className="border-t border-hairline px-3 py-2 text-[10px] text-muted">
             <span className="mr-1 inline-block size-1.5 rounded-full bg-green align-middle" />
             {modelLabel}

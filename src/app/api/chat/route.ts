@@ -11,6 +11,9 @@ export const maxDuration = 60;
 const chatInput = z.object({
   sessionId: z.string().optional(),
   message: z.string().trim().min(1).max(20000),
+  /** Model chosen in the switcher. Validated against the provider's
+   *  allowlist in resolveProviderConfig — never passed through raw. */
+  model: z.string().max(120).optional(),
 });
 
 /** GET /api/chat → sessions list; ?session=<id> → that session's messages. */
@@ -109,6 +112,7 @@ export async function POST(request: Request) {
           userMessage: message,
           emit: (e) => send(e),
           signal: request.signal,
+          model: parsed.data.model ?? null,
         });
         const saved = await prisma.chatMessage.create({
           data: {

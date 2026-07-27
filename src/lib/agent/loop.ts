@@ -25,8 +25,10 @@ export async function runAgent(opts: {
   userMessage: string;
   emit: (e: AgentEvent) => void;
   signal?: AbortSignal;
+  /** Model picked in the Assistant's switcher; ignored unless allowlisted. */
+  model?: string | null;
 }): Promise<AgentRunResult> {
-  const provider = getProvider();
+  const provider = getProvider(opts.model);
   if (!provider) {
     throw new Error(
       "No AI provider configured. Set AI_PROVIDER + AI_API_KEY (free: Groq or Google AI Studio) — see Settings → Integrations.",
