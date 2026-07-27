@@ -38,6 +38,11 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # claude-code-action exchanges an OIDC token before it will run —
+  # without this it retries three times and fails with "Unable to get
+  # ACTIONS_ID_TOKEN_REQUEST_URL", which reads like a missing secret but
+  # isn't. It is required even when anthropic_api_key is supplied.
+  id-token: write
 
 jobs:
   run:

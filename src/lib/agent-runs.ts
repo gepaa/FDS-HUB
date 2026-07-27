@@ -4,6 +4,7 @@ import {
   findPullRequestForBranch,
   findRunForBranch,
   getPullRequestDiff,
+  getRunJobs,
   getWorkflowRun,
   isConnected,
 } from "@/lib/github";
@@ -127,7 +128,14 @@ export async function refreshAgentRun(id: string): Promise<AgentRunDTO | null> {
         patch.status = "running";
       } else if (run.conclusion && run.conclusion !== "success") {
         patch.status = "failed";
-        patch.error = `Workflow ${run.conclusion}`;
+        // Name the step that actually died. "Workflow failure" on its own
+        // sent the operator to GitHub to find out what happened.
+        const failed = (await getRunJobs(workflowRunId)).find(
+          (s) => s.conclusion === "failure",
+        );
+        patch.error = failed
+          ? `Failed at "${failed.name}" — open the workflow run for the log.`
+          : `Workflow ${run.conclusion}`;
       }
     }
 
