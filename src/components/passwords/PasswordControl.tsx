@@ -306,7 +306,7 @@ export function PasswordControl({
               autoComplete="off"
               value={passphrase}
               onChange={(e) => setPassphrase(e.target.value)}
-              placeholder="Password"
+              placeholder="password little bro"
               className="surface-muted h-10 w-full rounded-control px-3 text-sm text-ink outline-none focus:ring-2 focus:ring-[var(--accent)]"
             />
             <Button type="submit" disabled={unlocking || !passphrase.trim()}>

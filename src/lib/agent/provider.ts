@@ -44,26 +44,90 @@ export interface ResolvedProviderConfig {
   model: string;
 }
 
+/**
+ * Models the Assistant's picker offers, per provider.
+ *
+ * Only the configured provider's list is ever shown: the API key is
+ * provider-specific, so switching provider needs a different key and is
+ * an env change, not a dropdown. Anything not on this list is refused —
+ * the picker is an allowlist, not free text from the browser.
+ */
+export const MODEL_CHOICES: Record<string, { id: string; label: string }[]> = {
+  anthropic: [
+    { id: "claude-opus-4-8", label: "Opus 4.8 — most capable" },
+    { id: "claude-sonnet-5", label: "Sonnet 5 — balanced" },
+    { id: "claude-haiku-4-5-20251001", label: "Haiku 4.5 — fastest, cheapest" },
+  ],
+  groq: [
+    {
+      id: "meta-llama/llama-4-scout-17b-16e-instruct",
+      label: "Llama 4 Scout — best free-tier headroom",
+    },
+    { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B — stronger, tighter rate limit" },
+  ],
+  gemini: [
+    { id: "gemini-flash-latest", label: "Gemini Flash (rolling latest)" },
+    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — slower, stronger" },
+  ],
+  openrouter: [
+    { id: "meta-llama/llama-3.3-70b-instruct:free", label: "Llama 3.3 70B (free)" },
+    { id: "deepseek/deepseek-chat", label: "DeepSeek Chat" },
+  ],
+};
+
+/** True when `model` is offered for the configured provider. */
+export function isAllowedModel(provider: string, model: string): boolean {
+  return (MODEL_CHOICES[provider] ?? []).some((m) => m.id === model);
+}
+
+/**
+ * What the picker renders: the configured provider, its current model,
+ * and the choices. Null when no backend is configured at all.
+ */
+export function listModelChoices(): {
+  provider: string;
+  current: string;
+  choices: { id: string; label: string }[];
+} | null {
+  const cfg = resolveProviderConfig();
+  if (!cfg) return null;
+  const choices = MODEL_CHOICES[cfg.provider] ?? [];
+  // A custom endpoint (or an AI_MODEL override that isn't on the list)
+  // still deserves to show what it is actually running.
+  const withCurrent = choices.some((c) => c.id === cfg.model)
+    ? choices
+    : [{ id: cfg.model, label: `${cfg.model} (from AI_MODEL)` }, ...choices];
+  return { provider: cfg.provider, current: cfg.model, choices: withCurrent };
+}
+
 /** Which backend is configured, or null → the chat shows setup help. */
-export function resolveProviderConfig(): ResolvedProviderConfig | null {
+export function resolveProviderConfig(
+  modelOverride?: string | null,
+): ResolvedProviderConfig | null {
   const p =
     env.AI_PROVIDER ??
     (env.ANTHROPIC_API_KEY ? "anthropic" : env.AI_API_KEY ? "groq" : null);
   if (!p) return null;
+  // An override only counts if it's on the allowlist for this provider.
+  const pick = (fallback: string) =>
+    modelOverride && isAllowedModel(p, modelOverride) ? modelOverride : fallback;
   if (p === "anthropic") {
     if (!(env.AI_API_KEY || env.ANTHROPIC_API_KEY)) return null;
-    return { provider: p, model: env.AI_MODEL ?? "claude-opus-4-8" };
+    return { provider: p, model: pick(env.AI_MODEL ?? "claude-opus-4-8") };
   }
   if (!env.AI_API_KEY) return null;
   if (p === "custom") {
     if (!env.AI_BASE_URL || !env.AI_MODEL) return null;
     return { provider: p, model: env.AI_MODEL };
   }
-  return { provider: p, model: env.AI_MODEL ?? OPENAI_COMPAT_PRESETS[p].defaultModel };
+  return {
+    provider: p,
+    model: pick(env.AI_MODEL ?? OPENAI_COMPAT_PRESETS[p].defaultModel),
+  };
 }
 
-export function getProvider(): ModelProvider | null {
-  const cfg = resolveProviderConfig();
+export function getProvider(modelOverride?: string | null): ModelProvider | null {
+  const cfg = resolveProviderConfig(modelOverride);
   if (!cfg) return null;
   if (cfg.provider === "anthropic") return anthropicProvider(cfg.model);
   const baseUrl =

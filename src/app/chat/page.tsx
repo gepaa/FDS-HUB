@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
-import { resolveProviderConfig } from "@/lib/agent/provider";
+import { listModelChoices, resolveProviderConfig } from "@/lib/agent/provider";
 import {
   ChatWorkspace,
   type ChatSessionDTO,
@@ -39,6 +39,7 @@ export default async function ChatPage() {
         initialSessions={dtos}
         aiConfigured={cfg !== null}
         modelLabel={cfg ? `${cfg.provider} · ${cfg.model}` : null}
+        models={listModelChoices()}
       />
     </div>
   );
