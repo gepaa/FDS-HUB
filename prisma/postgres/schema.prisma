@@ -55,6 +55,9 @@ model CrmRecord {
   mainContact  String?
   email        String?
   phone        String?
+  // Normalised E.164 form of `phone` (src/lib/quo/phone.ts) — what
+  // inbound Quo calls match on, never the display value.
+  phoneE164    String?
 
   status String @default("NOT_CONTACTED") @map("stage") // see NOTE above
 
@@ -88,18 +91,25 @@ model CrmRecord {
   notes           String?
   source          String?
 
+  // Created by an inbound call and still bare — flagged for enrichment.
+  needsEnrichment Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  interactions Interaction[]
-  approvals    Approval[]
-  callSessions CallSession[]
+  interactions    Interaction[]
+  approvals       Approval[]
+  callSessions    CallSession[]
+  commsActivities CommsActivity[]
+  quoContact      QuoContactLink?
+  tasks           HqTask[]
 
   @@index([status])
   @@index([cluster])
   @@index([nextActionDate])
   @@index([type])
   @@index([owner])
+  @@index([phoneE164])
   @@map("Supplier")
 }
 
@@ -160,7 +170,22 @@ model HqTask {
   updatedAt   DateTime  @updatedAt
   completedAt DateTime?
 
+  // Follow-up context (Quo call integration); all optional so existing
+  // rows stay valid. A call-proposed follow-up is status "suggested".
+  recordId       String?
+  record         CrmRecord?     @relation(fields: [recordId], references: [id], onDelete: SetNull)
+  activityId     String?
+  activity       CommsActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  dueDate        DateTime?
+  priority       String?
+  source         String         @default("human") // human | quo_call | agent
+  aiGenerated    Boolean        @default(false)
+  humanConfirmed Boolean        @default(false)
+
   @@index([status, createdAt])
+  @@index([recordId])
+  @@index([activityId])
+  @@index([dueDate])
 }
 
 // ---------------- Live Sales Cockpit ----------------
@@ -386,4 +411,257 @@ model AgentRun {
 
   @@index([createdAt])
   @@index([status])
+}
+
+// ---------------- Quo telephony integration ----------------
+//
+// Quo (formerly OpenPhone) is the business phone system. The CRM never
+// carries call audio — Quo does — but it owns the *record* of every
+// call: who called, what was said, and what we promised. See
+// docs/quo-crm-integration.md.
+//
+// Deliberately provider-neutral naming: `provider` is a column, not an
+// assumption, so a second telephony provider can land later without a
+// rename. Nothing below is Quo-specific except the values we store.
+
+// One row per call (and later, per message). This is the durable
+// activity spine that the lead timeline renders from — the dashboard
+// never calls Quo synchronously (§24).
+model CommsActivity {
+  id                 String @id @default(cuid())
+  provider           String @default("quo")
+  // Quo's activity id (`AC…`). Unique per provider — this pair is what
+  // makes duplicate webhook delivery a no-op (§8).
+  providerActivityId String
+
+  recordId String?
+  record   CrmRecord? @relation(fields: [recordId], references: [id], onDelete: SetNull)
+
+  type      String @default("call") // call | message
+  direction String // incoming | outgoing
+  // Quo's own call status vocabulary, stored verbatim:
+  // queued | initiated | ringing | in-progress | completed | busy |
+  // failed | no-answer | canceled | missed | answered | forwarded |
+  // abandoned
+  status    String
+
+  providerPhoneNumberId  String? // PN… — which of our numbers
+  providerConversationId String? // CN…
+  providerUserId         String? // US… — the Quo user on the call
+  answeredByUserId       String? // US… — who actually picked up
+
+  // The customer's number: display form plus the normalised value that
+  // lead matching actually uses (§7).
+  externalNumber     String?
+  externalNumberE164 String?
+
+  startedAt   DateTime?
+  answeredAt  DateTime?
+  completedAt DateTime?
+  durationSec Int?
+
+  missed    Boolean @default(false)
+  voicemail Boolean @default(false)
+  // Quo sets this to "ai-agent" when their AI answered instead of a
+  // human; null for ordinary calls.
+  aiHandled String?
+
+  forwardedFrom String?
+  forwardedTo   String?
+
+  // Deep link back into Quo for this activity (from the webhook's
+  // `links.quo`) — the honest handoff when someone wants the live app.
+  providerLink String?
+
+  // Null until a human has actually looked at the call — drives the
+  // "unreviewed call" indicator on the dashboard.
+  reviewedAt DateTime?
+  reviewedBy String?
+
+  // Last provider payload seen for this activity, for support/debugging.
+  raw String @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  artifacts  CallArtifact[]
+  extraction CallExtraction?
+  tasks      HqTask[]
+
+  @@unique([provider, providerActivityId])
+  @@index([recordId, startedAt])
+  @@index([externalNumberE164])
+  @@index([completedAt])
+  @@index([status])
+  @@index([missed, completedAt])
+}
+
+// Recordings, transcripts and summaries hang off a call. A single call
+// can have SEVERAL recording segments (hold/resume), so recordings are
+// rows, not columns — keyed by segment so a redelivered webhook updates
+// in place instead of duplicating or re-downloading (§10).
+//
+// `status` mirrors Quo's artifact vocabulary
+// (absent | in-progress | completed | failed | deleted | …). A 200 with
+// `in-progress` means "not ready yet" — it is NOT an error and must not
+// burn a retry budget as if it were.
+model CallArtifact {
+  id         String        @id @default(cuid())
+  activityId String
+  activity   CommsActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  kind         String // recording | transcript | summary | voicemail
+  segmentIndex Int    @default(0)
+  // Quo's own id for this artifact (`CR…` for recordings) when supplied.
+  providerArtifactId String?
+
+  status String @default("pending")
+
+  // Recording facets
+  durationSec Int?
+  mimeType    String?
+  providerUrl String? // Quo-hosted; no documented expiry — never trusted as permanent
+  storageKey  String? // set only when QUO_RECORDING_STORAGE_MODE copies it to our storage
+  startedAt   DateTime?
+
+  // Transcript facets. `text` is the flattened searchable form; the
+  // speaker-separated dialogue is preserved as JSON exactly as supplied.
+  text     String?
+  dialogue String? // JSON: [{content, start, end, identifier, userId}]
+
+  // Summary facets. Quo returns these as ARRAYS of strings, not prose.
+  // `nextSteps` stays empty on the Business plan (Scale-only feature).
+  bullets   String? // JSON: string[]
+  nextSteps String? // JSON: string[]
+
+  fetchedAt DateTime?
+  error     String?
+  // Set by the retention policy; a sweep deletes content past this date.
+  retentionDeleteAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([activityId, kind, segmentIndex])
+  @@index([activityId, kind])
+  @@index([providerArtifactId])
+  @@index([retentionDeleteAt])
+}
+
+// Our own structured read of the call — separate from Quo's output so
+// the provider's original is never overwritten (§11). `data` is the
+// validated extraction object; `crmNote` is the human-editable summary
+// generated from it.
+model CallExtraction {
+  id         String        @id @default(cuid())
+  activityId String        @unique
+  activity   CommsActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  status String  @default("pending") // pending | completed | failed | skipped
+  model  String?
+  data   String  @default("{}") // JSON, validated against src/lib/quo/extraction-schema.ts
+
+  crmNote         String?
+  crmNoteEditedAt DateTime?
+  crmNoteEditedBy String?
+
+  intentScore      Int?
+  needsHumanReview Boolean @default(false)
+  humanConfirmed   Boolean @default(false)
+
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+// Every webhook delivery, stored before it is processed. Quo's beta
+// webhooks are Standard-Webhooks signed, which means each delivery
+// carries a genuinely unique `webhook-id` — so idempotency is a real
+// key, with the payload hash kept as a fallback for any provider that
+// does not supply one (§8).
+model WebhookEvent {
+  id              String  @id @default(cuid())
+  provider        String  @default("quo")
+  providerEventId String?
+  eventType       String
+  resourceId      String?
+  idempotencyKey  String
+  payloadHash     String
+  payload         String
+
+  signatureValid Boolean @default(false)
+  status         String  @default("received") // received | processing | processed | failed | skipped
+  attempts       Int     @default(0)
+
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  lastError   String?
+
+  @@unique([provider, idempotencyKey])
+  @@index([status, receivedAt])
+  @@index([eventType, receivedAt])
+}
+
+// The background worker's to-do list.
+//
+// The hub runs on Vercel serverless: there is no long-lived process to
+// host a queue, and pulling in Redis/BullMQ for a handful of jobs a day
+// would be heavier than the problem. So jobs are rows: enqueued inside
+// the webhook transaction, drained immediately after the 2xx via
+// waitUntil, and swept by cron as the safety net. Backoff lives in
+// `runAfter`; `dedupeKey` stops the same work being queued twice.
+model JobQueue {
+  id      String  @id @default(cuid())
+  kind    String
+  payload String  @default("{}")
+  dedupeKey String? @unique
+
+  status      String    @default("queued") // queued | running | done | failed | dead
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  runAfter    DateTime  @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  lastError   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, runAfter])
+  @@index([kind, status])
+}
+
+// CRM ⇄ Quo contact mapping. The CRM id stays authoritative; the Quo
+// contact id is just a pointer we keep so we never create a duplicate
+// contact over there (§16).
+model QuoContactLink {
+  id       String    @id @default(cuid())
+  recordId String    @unique
+  record   CrmRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  quoContactId String?
+  // The stable id WE send to Quo as `externalId`, so a contact can be
+  // re-found even if the mapping row is lost.
+  externalId   String
+
+  lastSyncedAt   DateTime?
+  lastSyncStatus String? // ok | error
+  lastSyncError  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([quoContactId])
+  @@index([externalId])
+}
+
+// Small key/value store for integration health the settings page reads:
+// last successful webhook, last reconciliation, last backfill. Avoids a
+// migration every time we want to remember one more timestamp.
+model IntegrationState {
+  key       String   @id
+  value     String   @default("{}")
+  updatedAt DateTime @updatedAt
 }

@@ -12,6 +12,11 @@ const taskPatch = z.object({
     .optional(),
   assignee: z.enum(["claude", "you"]).optional(),
   result: z.string().nullable().optional(),
+  // Call-generated follow-ups (source "quo_call") arrive as
+  // `suggested` + aiGenerated. A human accepting one records that here,
+  // so "did a person actually agree to this?" stays answerable.
+  humanConfirmed: z.boolean().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
 });
 
 /** PATCH /api/tasks/[id] — update a task. The agent can start/finish
@@ -50,10 +55,22 @@ export async function PATCH(
     }
   }
 
+  // Only a human may confirm an AI-proposed follow-up — that is the
+  // entire point of the proposal step.
+  if (actor === "claude" && data.humanConfirmed !== undefined) {
+    return Response.json(
+      { error: "Agent may not confirm its own proposal" },
+      { status: 403 },
+    );
+  }
+
   const updated = await prisma.hqTask.update({
     where: { id },
     data: {
       ...data,
+      ...(data.dueDate !== undefined
+        ? { dueDate: data.dueDate ? new Date(data.dueDate) : null }
+        : {}),
       ...(data.status === "done" ? { completedAt: new Date() } : {}),
     },
   });

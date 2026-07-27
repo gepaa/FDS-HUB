@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { LeftRail } from "@/components/shell/LeftRail";
 import { TopBar } from "@/components/shell/TopBar";
+import { IncomingCallAlert } from "@/components/crm/IncomingCallAlert";
 
 /** Serializable slice of integration state for client chrome. */
 export interface IntegrationSummary {
@@ -41,6 +42,9 @@ export function AppShell({
           {children}
         </motion.main>
       </div>
+      {/* Ringing-phone alert. Renders nothing unless a call is live, so
+          it costs one small poll and no layout on every other page. */}
+      <IncomingCallAlert />
     </div>
   );
 }

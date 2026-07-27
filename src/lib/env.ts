@@ -83,6 +83,62 @@ const envSchema = z.object({
   // locally = the cron route is open (dev convenience).
   CRON_SECRET: z.string().optional(),
 
+  // ---- Quo telephony (formerly OpenPhone) — see docs/quo-crm-integration.md ----
+  //
+  // The master switch. Everything below is inert until this is "true":
+  // no webhook processing, no background sync, no AI extraction, no
+  // incoming-call alerts. Flipping it back to false is the rollback —
+  // it never deletes historical CRM records.
+  // Deliberately lenient: a typo here must not fail the whole env parse
+  // and take the app down to the SetupRequired screen. Off unless
+  // explicitly switched on.
+  QUO_INTEGRATION_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => v === "true" || v === "1" || v === "yes"),
+
+  // Workspace API key (Quo → Settings → API). Server-only: this must
+  // never reach the browser. NOTE: Quo sends this raw, with NO "Bearer "
+  // prefix — see src/lib/quo/client.ts.
+  QUO_API_KEY: z.string().optional(),
+  // Host only; the client appends /v1 or the versioned path itself.
+  QUO_API_BASE_URL: z.string().default("https://api.quo.com"),
+  // Standard-Webhooks signing secret ("whsec_…") returned when the
+  // webhook subscription is created or rotated.
+  QUO_WEBHOOK_SECRET: z.string().optional(),
+
+  // Which Quo numbers we sync ("PN…", comma-separated). Empty = all.
+  QUO_PHONE_NUMBER_IDS: z.string().optional(),
+  // The number outbound calls and contact sync default to.
+  QUO_DEFAULT_PHONE_NUMBER_ID: z.string().optional(),
+
+  // Default region for parsing numbers that arrive without a country
+  // code. Quo itself always sends E.164; this is for CRM-entered values.
+  // Anything that isn't a 2-letter code falls back to US rather than
+  // failing the parse.
+  QUO_DEFAULT_REGION: z
+    .string()
+    .optional()
+    .transform((v) =>
+      v && /^[A-Za-z]{2}$/.test(v) ? v.toUpperCase() : "US",
+    ),
+
+  // Recordings stay provider-hosted and are streamed through our own
+  // permission-checked proxy. Copying them into object storage needs a
+  // blob store this project does not have yet (see Known limitations).
+  QUO_RECORDING_STORAGE_MODE: z
+    .string()
+    .optional()
+    .transform(() => "provider" as const),
+
+  // Our own transcript→structured-data pass. Separate from the master
+  // switch so it can be disabled without losing call sync. On by
+  // default once the integration is enabled.
+  QUO_AI_EXTRACTION_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => v !== "false" && v !== "0" && v !== "no"),
+
   // ---- Team access gate (production) — see src/proxy.ts ----
   TEAM_USER: z.string().optional(), // defaults to "fds"
   TEAM_PASSWORD: z.string().optional(), // unset = gate off (local dev)

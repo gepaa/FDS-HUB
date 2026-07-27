@@ -3,6 +3,7 @@ import { toRecordDTO } from "@/lib/serialize";
 import { recordInput } from "@/lib/validation";
 import { resolveActor } from "@/lib/agent-auth";
 import { nextRecordId } from "@/lib/record-id";
+import { normalisedPhoneFor } from "@/lib/quo/matching";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,10 @@ export async function POST(request: Request) {
     data: {
       ...rest,
       recordId,
+      // Keep the normalised number in step with the typed one, so an
+      // inbound call from this lead matches without anyone having to
+      // remember international format.
+      phoneE164: normalisedPhoneFor(rest.phone),
       tags: JSON.stringify(tags),
       productCategories: JSON.stringify(productCategories),
       interactions: {

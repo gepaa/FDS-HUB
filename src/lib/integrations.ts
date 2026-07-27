@@ -73,6 +73,26 @@ export function getIntegrations(): IntegrationStatus[] {
       setupUrl: "https://discord.com/developers/applications",
     },
     {
+      id: "quo",
+      name: "Quo (phone)",
+      description:
+        "Business phone system. Calls, recordings, transcripts and AI summaries land on the lead automatically. Calls are placed in Quo itself — the CRM records them.",
+      stage: 4,
+      // Both halves are required: the key fetches call artifacts, the
+      // secret proves a delivery really came from Quo.
+      connected: Boolean(
+        env.QUO_INTEGRATION_ENABLED &&
+          env.QUO_API_KEY &&
+          env.QUO_WEBHOOK_SECRET,
+      ),
+      requiredEnv: [
+        "QUO_INTEGRATION_ENABLED",
+        "QUO_API_KEY",
+        "QUO_WEBHOOK_SECRET",
+      ],
+      setupUrl: "https://my.quo.com/settings/api",
+    },
+    {
       id: "gmail",
       name: "Gmail",
       description:

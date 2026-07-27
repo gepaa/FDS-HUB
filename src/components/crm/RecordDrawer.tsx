@@ -20,6 +20,8 @@ import { Field, Input, Select, Textarea } from "@/components/kit/Field";
 import { Chip } from "@/components/kit/Chip";
 import { OwnerBadge, PriorityBadge, StageBadge } from "@/components/crm/badges";
 import { QuickActionBar, type QuickAction } from "@/components/crm/QuickActions";
+import { CallTimeline } from "@/components/crm/CallTimeline";
+import { DialButton } from "@/components/crm/DialButton";
 
 /** Flat form payload — matches the PATCH/POST body of /api/records. */
 export interface RecordFormData {
@@ -260,6 +262,9 @@ export function RecordDrawer({
                 <PhoneCall size={13} aria-hidden />
                 Start call
               </Link>
+              {/* Hands the number to Quo. "Start call" opens the
+                  cockpit workspace; this actually dials. */}
+              <DialButton phone={record.phone} />
               <Button variant="ghost" size="sm" onClick={onDelete}>
                 <Trash2 size={13} aria-hidden />
                 Delete
@@ -692,6 +697,20 @@ export function RecordDrawer({
               <Chip key={t} label={t} />
             ))}
           </div>
+        ) : null}
+
+        {/* ---- Calls (Quo) ----
+             Its own section above the activity log: a call carries a
+             recording, a transcript and an AI read, none of which fit
+             the one-line shape of an interaction. The list loads
+             lazily and holds no transcript text until expanded. */}
+        {!creating ? (
+          <section className="flex flex-col gap-3">
+            <h3 className="text-xs font-semibold tracking-widest text-muted uppercase">
+              Calls
+            </h3>
+            <CallTimeline recordId={record.id} />
+          </section>
         ) : null}
 
         {/* ---- Activity log ---- */}

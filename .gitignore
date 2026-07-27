@@ -50,3 +50,10 @@ next-env.d.ts
 
 # signed business documents (local only — never commit; see docs/FDS_HQ_Decisions.md)
 /assets/business/
+
+# test database — rebuilt from the migrations on every `npm test` run
+/tests/test.db
+/tests/test.db-journal
+
+# pre-migration safety copy
+dev.db.pre-quo

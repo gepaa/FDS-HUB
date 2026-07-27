@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { toRecordDTO } from "@/lib/serialize";
 import { recordPatch } from "@/lib/validation";
 import { resolveActor } from "@/lib/agent-auth";
+import { normalisedPhoneFor } from "@/lib/quo/matching";
 import {
   LEAD_STAGE_IDS,
   STAGE_MAP,
@@ -65,6 +66,10 @@ export async function PATCH(request: Request, { params }: Params) {
     where: { id },
     data: {
       ...rest,
+      // Re-normalise whenever the phone number itself changes.
+      ...(rest.phone !== undefined
+        ? { phoneE164: normalisedPhoneFor(rest.phone) }
+        : {}),
       ...(tags !== undefined ? { tags: JSON.stringify(tags) } : {}),
       ...(productCategories !== undefined
         ? { productCategories: JSON.stringify(productCategories) }

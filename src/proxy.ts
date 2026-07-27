@@ -12,7 +12,25 @@ import { NextResponse, type NextRequest } from "next/server";
  * This is deliberately simple shared-credential protection so the CRM
  * isn't public while real per-user auth remains parked (Stage 7).
  */
+
+/**
+ * Paths that must stay reachable without the team password.
+ *
+ * Quo's servers cannot send Basic credentials, so leaving the webhook
+ * endpoint behind this gate would 401 every delivery — and because Quo
+ * retries and eventually disables failing endpoints, it would look like
+ * an intermittent Quo problem rather than our own gate. The endpoint
+ * authenticates each request by verifying its Standard-Webhooks
+ * signature, which proves the payload came from Quo unaltered; that is
+ * a stronger check than a shared password, not a weaker one.
+ */
+const PUBLIC_PATHS = ["/api/integrations/quo/webhooks"];
+
 export function proxy(request: NextRequest) {
+  if (PUBLIC_PATHS.some((p) => request.nextUrl.pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
   const password = process.env.TEAM_PASSWORD;
   if (!password) return NextResponse.next();
 
