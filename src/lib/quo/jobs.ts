@@ -10,6 +10,7 @@ import {
   storeTranscript,
   storeSummary,
   logCallInteraction,
+  markArtifactUnavailable,
 } from "@/lib/quo/sync";
 import { runExtraction } from "@/lib/quo/extraction";
 import { enqueue, claimDue, completeJob, failJob } from "@/lib/quo/queue";
@@ -154,12 +155,44 @@ const fetchRecording: Handler = async (payload) => {
   recordMetric("quo.recording.fetched", stored);
 };
 
+/**
+ * Transcripts and summaries are gated to Quo's Business and Scale
+ * plans. On Starter the endpoint refuses outright, which is a settled
+ * fact about the workspace, not a fault: retrying it cannot help, and
+ * treating it as a failure would put a dead job against every single
+ * call. Record "no transcript exists" once and move on.
+ */
+async function handlePlanGate(
+  err: unknown,
+  activityId: string,
+  kind: "transcript" | "summary",
+): Promise<boolean> {
+  if (!(err instanceof QuoApiError)) return false;
+  if (err.kind !== "permission") return false;
+
+  await markArtifactUnavailable(activityId, kind, "plan_not_entitled");
+  recordMetric(`quo.${kind}.plan_gated`);
+  logIntegration({
+    stage: `quo.fetch_${kind}`,
+    outcome: "skipped",
+    errorCode: "plan_not_entitled",
+    activityId,
+  });
+  return true;
+}
+
 const fetchTranscript: Handler = async (payload) => {
   const activityId = str(payload.activityId);
   const callId = str(payload.callId);
   if (!activityId || !callId) return;
 
-  const transcript = await quoClient.getTranscript(callId);
+  let transcript;
+  try {
+    transcript = await quoClient.getTranscript(callId);
+  } catch (err) {
+    if (await handlePlanGate(err, activityId, "transcript")) return;
+    throw err;
+  }
   const { ready } = await storeTranscript(activityId, transcript);
 
   if (transcript.status === "in-progress") {
@@ -185,7 +218,14 @@ const fetchSummary: Handler = async (payload) => {
   const callId = str(payload.callId);
   if (!activityId || !callId) return;
 
-  const summary = await quoClient.getSummary(callId);
+  let summary;
+  try {
+    summary = await quoClient.getSummary(callId);
+  } catch (err) {
+    if (await handlePlanGate(err, activityId, "summary")) return;
+    throw err;
+  }
+
   const { ready } = await storeSummary(activityId, summary);
 
   if (summary.status === "in-progress") {

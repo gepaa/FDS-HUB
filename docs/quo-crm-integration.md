@@ -87,12 +87,30 @@ been active, then asks for calls per participant. See
 **`totalItems` is documented by Quo as inaccurate.** Pagination follows
 `nextPageToken` until it is null, and nothing else.
 
-**Transcripts and summaries are plan-gated.** Quo's spec states they are
-"only available on business and scale plans", and they require call
-recording to be enabled. FDS is on **Business**, so transcripts and
-summaries work — but Quo's own *action items* (`nextSteps`) are a
-Scale-only feature and will be empty. That is precisely the gap our own
-extraction fills.
+**Transcripts and summaries are plan-gated, but API access is not.**
+An API key works on any paid plan. Transcripts and summaries, however,
+are "only available on business and scale plans" (Quo's own spec
+wording) and require call recording to be enabled. Quo's *action items*
+(`nextSteps`) are Scale-only in addition.
+
+What that means per plan:
+
+| | Starter | Business | Scale |
+|---|---|---|---|
+| API + webhooks | ✅ | ✅ | ✅ |
+| Call sync, matching, missed calls | ✅ | ✅ | ✅ |
+| Call recording | manual only | automatic | automatic |
+| Transcript + Quo summary | ❌ | ✅ | ✅ |
+| Quo `nextSteps` | ❌ | ❌ | ✅ |
+| Our AI note + follow-up | ❌ (no input) | ✅ | ✅ |
+
+The integration is written to degrade rather than break. A plan that
+does not include transcripts gets a 403, which is recorded once as
+`status: absent`, `error: plan_not_entitled` — a settled fact, not a
+retryable failure. No dead jobs accumulate, no extraction is queued with
+nothing to read, and no follow-up is invented from a call nobody
+transcribed. Upgrading later starts the AI half working with no code
+change. Covered by `tests/plan-gating.test.ts`.
 
 **Artifact readiness is a status, not a 404.** Recording, transcript and
 summary endpoints return `status: absent | in-progress | completed |
@@ -362,8 +380,10 @@ software cannot make that determination and none of this is legal advice.
    team password can play any recording. (§7)
 2. **No outbound calling from the CRM.** Quo's API cannot start a call;
    the button hands off to the Quo desktop app. (§4)
-3. **No Quo action items on Business.** `nextSteps` will be empty; our
-   extraction supplies follow-ups instead.
+3. **The AI half needs a Business plan.** On Starter there is no
+   transcript, so there is no AI note and no proposed follow-up — every
+   other feature works. Quo's own `nextSteps` needs Scale regardless;
+   our extraction covers that gap on Business. See §3.
 4. **The unified webhook API is in open beta.** Event names and payload
    shape are pinned to version `2026-03-30`, but Quo may change the beta.
    The delivered envelope is parsed defensively (both the documented

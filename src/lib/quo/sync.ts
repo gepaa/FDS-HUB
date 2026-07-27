@@ -395,6 +395,34 @@ export async function storeSummary(
 }
 
 /**
+ * Record that an artifact will never arrive, and why.
+ *
+ * The common case is plan entitlement: transcripts and summaries are a
+ * Business-plan feature, so on Starter every call would otherwise
+ * produce a permanently failing fetch job. Storing `absent` once says
+ * the true thing — "there is no transcript for this call" — and lets
+ * the job finish successfully instead of retrying into a dead end.
+ */
+export async function markArtifactUnavailable(
+  activityId: string,
+  kind: "recording" | "transcript" | "summary" | "voicemail",
+  reason: string,
+): Promise<void> {
+  const data = {
+    status: "absent",
+    error: reason,
+    fetchedAt: new Date(),
+  };
+  await prisma.callArtifact.upsert({
+    where: {
+      activityId_kind_segmentIndex: { activityId, kind, segmentIndex: 0 },
+    },
+    create: { activityId, kind, segmentIndex: 0, ...data },
+    update: data,
+  });
+}
+
+/**
  * Mirror a finished call into the existing Interaction activity log, so
  * the record drawer that salespeople already use shows calls next to
  * emails and notes. Written once per call.
