@@ -34,6 +34,7 @@ import {
   type CockpitData,
   type NoteKind,
 } from "@/lib/cockpit";
+import { DealBoard } from "@/components/cockpit/DealBoard";
 
 // ---------------- DTOs from the server page ----------------
 
@@ -112,6 +113,7 @@ export function CockpitScreen({
   startedAt,
   initialData,
   initialNotes,
+  lastCallNote,
 }: {
   record: CockpitRecordDTO;
   interactions: CockpitInteractionDTO[];
@@ -120,6 +122,8 @@ export function CockpitScreen({
   startedAt: string;
   initialData: CockpitData;
   initialNotes: CallNote[];
+  /** Write-up of the previous call, shown on the deal board. */
+  lastCallNote?: string | null;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -407,6 +411,26 @@ export function CockpitScreen({
             </p>
           </div>
         )}
+
+        {/* ---------- the deal: what actually decides the call ----------
+             Product, margin, the four checks, supplier and last call —
+             above everything else, because on a live call these are the
+             only things a salesperson needs without scrolling. The
+             detailed panels below stay for when they're wanted. */}
+        <DealBoard
+          data={data}
+          patch={patch}
+          customerPhone={record.phone}
+          lastCallNote={lastCallNote}
+        />
+
+        <details className="group">
+          <summary className="cursor-pointer list-none py-2 text-xs tracking-wide text-muted uppercase hover:text-ink">
+            More detail
+            <span className="ml-1 inline-block transition-transform group-open:rotate-180">
+              ▾
+            </span>
+          </summary>
 
         {/* ---------- 3-column cockpit ---------- */}
         <div className="grid flex-1 grid-cols-1 gap-3 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
@@ -1034,6 +1058,7 @@ export function CockpitScreen({
             </section>
           </div>
         </div>
+        </details>
       </div>
 
       <EndCallDialog

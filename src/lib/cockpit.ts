@@ -25,7 +25,101 @@ export interface SpecRow {
   verified: boolean;
 }
 
+// ---------------- the deal (what actually matters on a call) ----------------
+
+/**
+ * The seven things a salesperson needs in front of them, per the
+ * operator: what it is, what we make on it, whether it can physically
+ * be delivered, whether paperwork is owed, when the money lands, who
+ * supplies it and what was said last time.
+ *
+ * Added alongside the original fields rather than replacing them —
+ * `data` is a JSON blob on CallSession, so old sessions keep parsing
+ * and simply pick up the defaults.
+ */
+export interface DealProduct {
+  /** Shopify product id, when picked from the store. */
+  shopifyId: string | null;
+  title: string;
+  sku: string;
+  vendor: string;
+  imageUrl: string;
+  /** What we sell it for. */
+  price: number | null;
+  /** What it costs us. Null = unknown, never assume zero. */
+  cost: number | null;
+  /** Freight cost to us, when known. */
+  freight: number | null;
+}
+
+export type CheckState = "unknown" | "yes" | "no";
+export type QuoteState = "unknown" | "needed" | "not_needed" | "sent";
+export type ShippingState = "unknown" | "needed" | "not_needed" | "quoted";
+export type PaymentMethod =
+  | "unknown"
+  | "card"
+  | "bank"
+  | "financing"
+  | "other";
+
+export interface DealChecks {
+  /** Can they unload it? Freight for this gear needs a forklift. */
+  forklift: CheckState;
+  /** Does this SKU need a bespoke shipping quote? */
+  customShipping: ShippingState;
+  /** Do they want a formal written quote? */
+  formalQuote: QuoteState;
+  payment: PaymentMethod;
+  /** Free text: "deposit now, balance on delivery", "Nov harvest". */
+  paymentWhen: string;
+}
+
+export function emptyDeal(): DealProduct {
+  return {
+    shopifyId: null,
+    title: "",
+    sku: "",
+    vendor: "",
+    imageUrl: "",
+    price: null,
+    cost: null,
+    freight: null,
+  };
+}
+
+export function emptyChecks(): DealChecks {
+  return {
+    forklift: "unknown",
+    customShipping: "unknown",
+    formalQuote: "unknown",
+    payment: "unknown",
+    paymentWhen: "",
+  };
+}
+
+/**
+ * Profit, or null when we cannot honestly compute it.
+ *
+ * Returning null for a missing cost is deliberate. Treating an unknown
+ * cost as zero would show a healthy margin on a deal that might be
+ * losing money — the single most expensive lie this screen could tell.
+ */
+export function dealProfit(deal: DealProduct): number | null {
+  if (deal.price === null || deal.cost === null) return null;
+  return deal.price - deal.cost - (deal.freight ?? 0);
+}
+
+export function dealMargin(deal: DealProduct): number | null {
+  const profit = dealProfit(deal);
+  if (profit === null || !deal.price) return null;
+  return (profit / deal.price) * 100;
+}
+
 export interface CockpitData {
+  /** The product being discussed, priced from Shopify. */
+  deal: DealProduct;
+  /** The four go/no-go questions. */
+  checks: DealChecks;
   /** Where the customer is — drives freight talk. Verified on-call. */
   location: string;
   /** The supplier behind the deal (picked from the CRM). */
@@ -73,6 +167,12 @@ export function emptyCockpitData(seed?: {
   quoteAmount?: number | null;
 }): CockpitData {
   return {
+    deal: {
+      ...emptyDeal(),
+      title: seed?.productInterest ?? "",
+      price: seed?.quoteAmount ?? null,
+    },
+    checks: emptyChecks(),
     location: "",
     supplier: { id: "", name: "", contact: "", phone: "" },
     product: {
@@ -101,9 +201,35 @@ export function emptyCockpitData(seed?: {
   };
 }
 
+/**
+ * Read a stored session, filling in anything a older blob predates.
+ * Sessions saved before the deal fields existed must still open.
+ */
+export function hydrateCockpitData(raw: unknown): CockpitData {
+  const base = emptyCockpitData();
+  if (!raw || typeof raw !== "object") return base;
+  const v = raw as Partial<CockpitData>;
+  return {
+    ...base,
+    ...v,
+    deal: { ...base.deal, ...(v.deal ?? {}) },
+    checks: { ...base.checks, ...(v.checks ?? {}) },
+    supplier: { ...base.supplier, ...(v.supplier ?? {}) },
+    product: { ...base.product, ...(v.product ?? {}) },
+    fitCheck: { ...base.fitCheck, ...(v.fitCheck ?? {}) },
+    stock: { ...base.stock, ...(v.stock ?? {}) },
+    freight: { ...base.freight, ...(v.freight ?? {}) },
+    terms: { ...base.terms, ...(v.terms ?? {}) },
+    quote: { ...base.quote, ...(v.quote ?? {}) },
+  };
+}
+
 /** What is still unverified — feeds the big warning banner. */
 export function unverifiedItems(d: CockpitData): string[] {
   const out: string[] = [];
+  if (d.checks.forklift === "unknown") out.push("forklift access");
+  if (d.checks.customShipping === "unknown") out.push("shipping quote");
+  if (d.deal.cost === null && d.deal.price !== null) out.push("our cost");
   if (d.product.title && d.product.specs.some((s) => !s.verified))
     out.push("product specs");
   if (d.fitCheck.status === "unknown" || d.fitCheck.status === "needs_check")

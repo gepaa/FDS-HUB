@@ -292,6 +292,146 @@ function normalize(name: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+// ---------------- product search (call cockpit) ----------------
+
+/**
+ * A product as the cockpit needs it: what we sell it for, what it costs
+ * us, and whether there is any to sell.
+ *
+ * `cost` is the part that makes profit real, and it is the part most
+ * likely to be missing. Unit cost lives on the inventory item and needs
+ * the `read_inventory` scope — an app set up with only read_products
+ * will return products fine and costs not at all. That is reported
+ * honestly as a null cost so the salesperson can type the number,
+ * rather than a zero that would quietly turn into fictional profit.
+ */
+export interface ShopifyProductHit {
+  id: string;
+  title: string;
+  vendor: string | null;
+  sku: string | null;
+  imageUrl: string | null;
+  /** What the customer pays, per the store. */
+  price: number | null;
+  /** What it costs us. Null when Shopify won't tell us. */
+  cost: number | null;
+  currency: string | null;
+  inventoryQuantity: number | null;
+  variantTitle: string | null;
+}
+
+interface ProductSearchResponse {
+  products: {
+    edges: {
+      node: {
+        id: string;
+        title: string;
+        vendor: string | null;
+        featuredImage: { url: string } | null;
+        variants: {
+          edges: {
+            node: {
+              id: string;
+              title: string | null;
+              sku: string | null;
+              price: string | null;
+              inventoryQuantity: number | null;
+              inventoryItem: {
+                unitCost: { amount: string; currencyCode: string } | null;
+              } | null;
+            };
+          }[];
+        };
+      };
+    }[];
+  };
+}
+
+const PRODUCT_FIELDS = `
+  id
+  title
+  vendor
+  featuredImage { url }
+  variants(first: 1) {
+    edges {
+      node {
+        id
+        title
+        sku
+        price
+        inventoryQuantity
+        inventoryItem { unitCost { amount currencyCode } }
+      }
+    }
+  }
+`;
+
+/**
+ * Search the store. Falls back to the same query without cost when the
+ * token lacks inventory access, so a narrow scope degrades to "no cost"
+ * instead of "no products".
+ */
+export async function searchShopifyProducts(
+  term: string,
+  limit = 8,
+): Promise<{ products: ShopifyProductHit[]; costAvailable: boolean }> {
+  const trimmed = term.trim();
+  // Shopify's search syntax: a bare term matches title/sku/vendor.
+  const q = trimmed ? `${trimmed.replace(/["\\]/g, "")}*` : "";
+  const take = Math.min(Math.max(limit, 1), 25);
+
+  const build = (fields: string) => `
+    query SearchProducts($q: String, $n: Int!) {
+      products(first: $n, query: $q) { edges { node { ${fields} } } }
+    }
+  `;
+
+  let data: ProductSearchResponse;
+  let costAvailable = true;
+  try {
+    data = await adminQuery<ProductSearchResponse>(build(PRODUCT_FIELDS), {
+      q: q || null,
+      n: take,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    // Only retry for an access problem — a genuine query error should
+    // surface rather than be masked by a second attempt.
+    if (!/access|scope|permission/i.test(message)) throw err;
+    costAvailable = false;
+    const withoutCost = PRODUCT_FIELDS.replace(
+      "inventoryItem { unitCost { amount currencyCode } }",
+      "",
+    );
+    data = await adminQuery<ProductSearchResponse>(build(withoutCost), {
+      q: q || null,
+      n: take,
+    });
+  }
+
+  const products = (data.products?.edges ?? []).map(({ node }) => {
+    const variant = node.variants?.edges?.[0]?.node ?? null;
+    const cost = variant?.inventoryItem?.unitCost?.amount;
+    return {
+      id: node.id,
+      title: node.title,
+      vendor: node.vendor || null,
+      sku: variant?.sku || null,
+      imageUrl: node.featuredImage?.url ?? null,
+      price: variant?.price ? Number(variant.price) : null,
+      cost: cost != null ? Number(cost) : null,
+      currency: variant?.inventoryItem?.unitCost?.currencyCode ?? null,
+      inventoryQuantity: variant?.inventoryQuantity ?? null,
+      variantTitle:
+        variant?.title && variant.title !== "Default Title"
+          ? variant.title
+          : null,
+    } satisfies ShopifyProductHit;
+  });
+
+  return { products, costAvailable };
+}
+
 export interface VendorMatch {
   vendor: string;
   /** CRM record id when a supplier matches this vendor. */

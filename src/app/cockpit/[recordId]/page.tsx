@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { emptyCockpitData, type CallNote, type CockpitData } from "@/lib/cockpit";
+import {
+  emptyCockpitData,
+  hydrateCockpitData,
+  type CallNote,
+  type CockpitData,
+} from "@/lib/cockpit";
 import {
   CockpitScreen,
   type CockpitInteractionDTO,
@@ -83,7 +88,10 @@ export default async function CockpitPage({
   let data: CockpitData;
   let notes: CallNote[];
   try {
-    data = { ...emptyCockpitData(), ...(JSON.parse(session.data) as CockpitData) };
+    // Deep hydrate, not a shallow spread: sessions saved before the
+    // deal/checks fields existed have no such keys, and a shallow merge
+    // would leave them undefined for the screen to crash on.
+    data = hydrateCockpitData(JSON.parse(session.data));
   } catch {
     data = emptyCockpitData();
   }
@@ -92,6 +100,19 @@ export default async function CockpitPage({
   } catch {
     notes = [];
   }
+
+  // What was said last time. Prefer the AI write-up of the previous
+  // synced call; fall back to the last logged call in the activity log
+  // so this is useful before Quo (or a paid plan) is in play.
+  const previousCall = await prisma.commsActivity.findFirst({
+    where: { recordId: record.id, status: "completed" },
+    orderBy: { completedAt: "desc" },
+    include: { extraction: { select: { crmNote: true } } },
+  });
+  const lastCallNote =
+    previousCall?.extraction?.crmNote ??
+    interactions.find((i) => i.type === "call")?.body ??
+    null;
 
   return (
     <CockpitScreen
@@ -102,6 +123,7 @@ export default async function CockpitPage({
       startedAt={session.startedAt.toISOString()}
       initialData={data}
       initialNotes={notes}
+      lastCallNote={lastCallNote}
     />
   );
 }
