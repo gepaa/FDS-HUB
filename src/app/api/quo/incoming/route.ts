@@ -1,14 +1,37 @@
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveActor } from "@/lib/agent-auth";
+import { drainJobs } from "@/lib/quo/jobs";
 import { env } from "@/lib/env";
 import { displayPhone } from "@/lib/quo/phone";
 import { quoStatus } from "@/lib/quo/config";
 import { needsFollowUp } from "@/lib/domain";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 /** A call still ringing is only interesting for a short window. */
 const RINGING_WINDOW_MS = 2 * 60 * 1000;
+
+/**
+ * Opportunistic queue draining.
+ *
+ * The webhook drains its own work immediately, and cron is the safety
+ * net for anything that failed and is waiting on a backoff. But this
+ * project runs on Vercel's Hobby plan, where cron may only fire ONCE
+ * PER DAY — so a transcript that failed its first fetch would otherwise
+ * sit unretried until tomorrow.
+ *
+ * This endpoint is already polled every few seconds by every open CRM
+ * tab, which makes it a natural heartbeat: while anybody is working,
+ * the queue keeps moving. When nobody is, nothing is urgent anyway and
+ * the daily cron covers it.
+ *
+ * Throttled per instance so a room full of open tabs doesn't turn into
+ * a drain storm.
+ */
+const DRAIN_EVERY_MS = 30_000;
+let lastDrainAt = 0;
 
 /**
  * GET /api/quo/incoming — what is ringing right now.
@@ -113,6 +136,20 @@ export async function GET(request: Request) {
       };
     }),
   );
+
+  // Piggyback the queue on the poll, after the response is sent so the
+  // alert is never delayed by background work.
+  if (Date.now() - lastDrainAt > DRAIN_EVERY_MS) {
+    lastDrainAt = Date.now();
+    after(async () => {
+      try {
+        await drainJobs(5);
+      } catch {
+        // A failed drain is already recorded on the job row itself;
+        // the alert poll must not surface it.
+      }
+    });
+  }
 
   return Response.json({ calls });
 }

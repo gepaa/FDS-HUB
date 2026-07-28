@@ -9,7 +9,7 @@
     },
     {
       "path": "/api/cron/quo-drain",
-      "schedule": "*/10 * * * *"
+      "schedule": "30 13 * * *"
     }
   ]
 }
