@@ -37,6 +37,15 @@ import type { CommsActivity } from "@/generated/prisma/client";
 const nullableDate = (v: string | null | undefined): Date | null =>
   v ? new Date(v) : null;
 
+/** "24s" / "1m 35s" — never "0 min". */
+function formatCallLength(seconds: number | null | undefined): string {
+  const total = Math.max(0, Math.round(seconds ?? 0));
+  if (total < 60) return `${total}s`;
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return s === 0 ? `${m}m` : `${m}m ${s}s`;
+}
+
 /** Keep an existing value when the incoming one is empty. */
 function keep<T>(incoming: T | null | undefined, existing: T | null): T | null {
   return incoming === null || incoming === undefined ? existing : incoming;
@@ -430,7 +439,15 @@ export async function markArtifactUnavailable(
 export async function logCallInteraction(
   activity: CommsActivity,
 ): Promise<void> {
-  if (!activity.recordId || activity.status !== "completed") return;
+  if (!activity.recordId) return;
+  // Missed calls belong in the activity log too — "they rang and nobody
+  // picked up" is exactly the kind of thing that should be visible in
+  // the same place as emails and notes, not only in the calls list.
+  const isFinished =
+    activity.status === "completed" ||
+    activity.missed ||
+    activity.status === "no-answer";
+  if (!isFinished) return;
 
   const marker = `[quo:${activity.providerActivityId}]`;
   const already = await prisma.interaction.findFirst({
@@ -443,11 +460,13 @@ export async function logCallInteraction(
     env.QUO_DEFAULT_REGION,
   );
   const direction = activity.direction === "incoming" ? "Inbound" : "Outbound";
+  // Round-to-minutes turned a 24-second call into "0 min", which reads
+  // as a bug and tells the reader nothing.
   const outcome = activity.missed
     ? "missed"
     : activity.voicemail
       ? "voicemail"
-      : `${Math.round((activity.durationSec ?? 0) / 60)} min`;
+      : formatCallLength(activity.durationSec);
 
   await prisma.interaction.create({
     data: {
