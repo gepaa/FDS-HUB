@@ -215,27 +215,42 @@ export function QuoIntegrationPanel() {
           {/* Registers this exact deployment's URL with Quo. Reads the
               origin from the browser so it is always the site you are
               actually looking at — no chance of pointing production at
-              a preview URL by mistake. */}
+              a preview URL by mistake.
+
+              Deliberately NOT disabled when a secret already exists.
+              A configured secret does not prove a subscription exists —
+              the value could have been set by hand, or be left over from
+              a rotation — and disabling the button in that state locks
+              the operator out of the one action that fixes it. Instead
+              it confirms, because re-registering issues a new secret and
+              invalidates the old one. */}
           <Button
             size="sm"
             variant="primary"
-            onClick={() =>
-              act("register_webhook", {
+            onClick={() => {
+              if (
+                status.webhookSecretConfigured &&
+                !window.confirm(
+                  "A signing secret is already configured.\n\n" +
+                    "Registering again creates a new subscription and issues a " +
+                    "NEW secret — the current one stops working until you " +
+                    "replace it in the environment.\n\nContinue?",
+                )
+              ) {
+                return;
+              }
+              void act("register_webhook", {
                 url: `${window.location.origin}/api/integrations/quo/webhooks`,
                 label: "FDS Operations HQ",
-              })
-            }
-            disabled={busy !== null || status.webhookSecretConfigured}
-            title={
-              status.webhookSecretConfigured
-                ? "Already registered — a signing secret is configured"
-                : "Tell Quo to send call events here"
-            }
+              });
+            }}
+            disabled={busy !== null}
+            title="Tell Quo to send call events to this site"
           >
             {busy === "register_webhook"
               ? "Registering…"
               : status.webhookSecretConfigured
-                ? "Webhook registered"
+                ? "Re-register webhook"
                 : "Register webhook"}
           </Button>
           <Button
