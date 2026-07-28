@@ -57,6 +57,10 @@ export function QuoIntegrationPanel() {
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
+  // Quo returns the signing secret exactly once, at creation. It is
+  // held here only so it can be copied — never written to the database,
+  // never sent anywhere else.
+  const [secret, setSecret] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/integrations/quo", { cache: "no-store" });
@@ -79,6 +83,9 @@ export function QuoIntegrationPanel() {
         body: JSON.stringify({ action, ...extra }),
       });
       const data = (await res.json()) as Record<string, unknown>;
+      if (typeof data.signingSecret === "string" && data.signingSecret) {
+        setSecret(data.signingSecret);
+      }
       setResult({
         ok: res.ok,
         text: res.ok
@@ -205,6 +212,32 @@ export function QuoIntegrationPanel() {
           >
             List webhooks
           </Button>
+          {/* Registers this exact deployment's URL with Quo. Reads the
+              origin from the browser so it is always the site you are
+              actually looking at — no chance of pointing production at
+              a preview URL by mistake. */}
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() =>
+              act("register_webhook", {
+                url: `${window.location.origin}/api/integrations/quo/webhooks`,
+                label: "FDS Operations HQ",
+              })
+            }
+            disabled={busy !== null || status.webhookSecretConfigured}
+            title={
+              status.webhookSecretConfigured
+                ? "Already registered — a signing secret is configured"
+                : "Tell Quo to send call events here"
+            }
+          >
+            {busy === "register_webhook"
+              ? "Registering…"
+              : status.webhookSecretConfigured
+                ? "Webhook registered"
+                : "Register webhook"}
+          </Button>
           <Button
             size="sm"
             onClick={() => act("drain_jobs")}
@@ -224,6 +257,38 @@ export function QuoIntegrationPanel() {
             Refresh
           </Button>
         </div>
+
+        {/* The one-time secret. Shown big, because Quo will not show it
+            again and the integration cannot verify a delivery without
+            it. Not persisted anywhere — closing this loses it, and the
+            fix is to rotate, not to hunt for it. */}
+        {secret ? (
+          <div className="mt-4 rounded-md border-2 border-[var(--amber)] p-3">
+            <p className="text-sm font-semibold text-ink">
+              Copy this now — Quo will never show it again
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              Paste it into Vercel as{" "}
+              <code className="text-ink">QUO_WEBHOOK_SECRET</code>, then
+              redeploy. Until you do, calls cannot be verified and will be
+              rejected.
+            </p>
+            <code className="mt-2 block rounded border border-hairline bg-[var(--panel)] px-2 py-1.5 text-xs break-all text-ink select-all">
+              {secret}
+            </code>
+            <div className="mt-2 flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => void navigator.clipboard?.writeText(secret)}
+              >
+                Copy to clipboard
+              </Button>
+              <Button size="sm" onClick={() => setSecret(null)}>
+                I&apos;ve saved it
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         {result ? (
           <p
