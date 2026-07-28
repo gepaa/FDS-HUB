@@ -45,11 +45,14 @@ export function DialButton({
       <a
         href={dial.href}
         onClick={() => setExplained(true)}
-        className="press inline-flex h-8 items-center gap-1.5 rounded-control border border-hairline bg-[var(--panel)] px-3 text-[13px] font-medium text-ink shadow-sm hover:border-[var(--hairline-strong)]"
-        title={dial.instruction}
+        // whitespace-nowrap: the label must never wrap onto a second
+        // line and push the footer's height around.
+        className="press inline-flex h-8 shrink-0 items-center gap-1.5 rounded-control border border-hairline bg-[var(--panel)] px-3 text-[13px] font-medium whitespace-nowrap text-ink shadow-sm hover:border-[var(--hairline-strong)]"
+        title={`${dial.display} — ${dial.instruction}`}
       >
         <PhoneOutgoing size={13} aria-hidden />
-        Dial {dial.display}
+        Dial
+        <span className="sr-only"> {dial.display}</span>
       </a>
       {explained ? (
         <span

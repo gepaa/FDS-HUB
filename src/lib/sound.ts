@@ -14,7 +14,8 @@ export type SoundName =
   | "error" // low descending buzz
   | "whoosh" // filtered air — drawers, modals
   | "drop" // water plop — kanban card dropped
-  | "pop"; // small rising blip — card picked up
+  | "pop" // small rising blip — card picked up
+  | "ring"; // incoming call — the one sound allowed to interrupt
 
 const STORAGE_KEY = "fds-sound";
 
@@ -198,6 +199,31 @@ export function play(name: SoundName) {
         break;
       case "pop":
         tone({ type: "sine", from: 300, to: 520, duration: 0.07, gain: 0.07 });
+        break;
+      case "ring":
+        // A ringing phone is the one event worth interrupting for, so
+        // this is louder and longer than everything else here — but
+        // still a warm two-tone warble rather than a klaxon. Two bursts
+        // with a gap, the way a phone actually rings, so it reads as
+        // "the phone" and not "an error".
+        for (const burst of [0, 0.75]) {
+          for (const step of [0, 0.16, 0.32]) {
+            tone({
+              type: "triangle",
+              from: 660,
+              duration: 0.14,
+              gain: 0.16,
+              delay: burst + step,
+            });
+            tone({
+              type: "triangle",
+              from: 880,
+              duration: 0.14,
+              gain: 0.13,
+              delay: burst + step + 0.08,
+            });
+          }
+        }
         break;
     }
   } catch {

@@ -252,12 +252,14 @@ export function RecordDrawer({
         )
       }
       footer={
-        <div className="flex items-center gap-2">
+        // flex-wrap so a narrow drawer stacks the buttons cleanly
+        // instead of squeezing them out of alignment.
+        <div className="flex flex-wrap items-center gap-2">
           {!creating ? (
             <>
               <Link
                 href={`/cockpit/${record.id}`}
-                className="press inline-flex h-8 items-center gap-1.5 rounded-control border border-hairline bg-[var(--panel)] px-3 text-[13px] font-medium text-ink shadow-sm hover:border-[var(--hairline-strong)]"
+                className="press inline-flex h-8 shrink-0 items-center gap-1.5 rounded-control border border-hairline bg-[var(--panel)] px-3 text-[13px] font-medium whitespace-nowrap text-ink shadow-sm hover:border-[var(--hairline-strong)]"
               >
                 <PhoneCall size={13} aria-hidden />
                 Start call

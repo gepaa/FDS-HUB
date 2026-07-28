@@ -6,6 +6,7 @@ import { PhoneIncoming, X, AlertTriangle } from "lucide-react";
 import { GlassPanel } from "@/components/kit/GlassPanel";
 import { Button } from "@/components/kit/Button";
 import { StageBadge } from "@/components/crm/badges";
+import { useSound } from "@/hooks/useSound";
 
 /**
  * The ringing-phone alert.
@@ -94,17 +95,30 @@ export function IncomingCallAlert() {
   const [calls, setCalls] = useState<IncomingCall[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const timer = useRef<number | null>(null);
+  const { sound } = useSound();
+  /** Calls we have already rung for, so a poll doesn't re-trigger. */
+  const rungFor = useRef<Set<string>>(new Set());
 
   const poll = useCallback(async () => {
     try {
       const res = await fetch("/api/quo/incoming", { cache: "no-store" });
       if (!res.ok) return;
       const data = (await res.json()) as { calls: IncomingCall[] };
-      setCalls(data.calls.filter((c) => claimAlert(c.activityId)));
+      const mine = data.calls.filter((c) => claimAlert(c.activityId));
+      setCalls(mine);
+
+      // Ring for anything we haven't rung for yet. A salesperson is
+      // rarely staring at the CRM when the phone goes — without this
+      // the alert is only useful to someone already looking at it.
+      for (const call of mine) {
+        if (rungFor.current.has(call.activityId)) continue;
+        rungFor.current.add(call.activityId);
+        sound("ring");
+      }
     } catch {
       // A failed poll is not worth surfacing — the next one is 8s away.
     }
-  }, []);
+  }, [sound]);
 
   useEffect(() => {
     // Polling an external system — exactly what effects are for. State
