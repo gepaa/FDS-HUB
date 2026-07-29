@@ -114,7 +114,7 @@ export function LoginScreen() {
         >
           <label className="block">
             <span className="mb-1.5 block text-xs font-medium tracking-wide text-white/60 uppercase">
-              Name
+              Username
             </span>
             <input
               value={user}

@@ -9,6 +9,31 @@ import {
 
 export const dynamic = "force-dynamic";
 
+/**
+ * GET /api/auth/login — configuration check.
+ *
+ * "The right password is rejected" has two very different causes: the
+ * password is wrong, or the server has no password configured at all
+ * (a missing or mis-scoped environment variable). Those are
+ * indistinguishable from the login form, and guessing between them
+ * wastes an afternoon.
+ *
+ * This reports only whether a password is configured and how long it
+ * is — never the value, never a hash of it. A length alone is not
+ * usefully brute-forceable, and it instantly settles "did my paste
+ * bring a trailing newline with it".
+ */
+export function GET() {
+  const raw = process.env.TEAM_PASSWORD ?? "";
+  const trimmed = raw.trim();
+  return Response.json({
+    gateEnabled: trimmed.length > 0,
+    expectedUser: (process.env.TEAM_USER ?? "").trim() || "fds",
+    passwordLength: trimmed.length,
+    hadSurroundingWhitespace: raw !== trimmed,
+  });
+}
+
 const loginInput = z.object({
   user: z.string().max(200).default(""),
   password: z.string().max(500),

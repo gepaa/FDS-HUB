@@ -21,12 +21,33 @@ export const SESSION_COOKIE = "fds_team";
 /** How long a sign-in lasts before the login page reappears. */
 export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
+/**
+ * The configured password, with surrounding whitespace removed.
+ *
+ * Trimming the CONFIGURED value (never the typed one) is deliberate.
+ * This value is pasted into a hosting dashboard by a human, and pasting
+ * picks up a trailing newline or space more often than anyone expects.
+ * The symptom is brutal to debug: the right password is rejected with
+ * no clue why. A shared team password gains nothing from being allowed
+ * to end in a space, so the invisible failure mode is worth more than
+ * the lost character.
+ */
+function configuredPassword(): string | null {
+  const raw = process.env.TEAM_PASSWORD;
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function configuredUser(): string {
+  return (process.env.TEAM_USER ?? "").trim() || "fds";
+}
+
 function signingKeyMaterial(): string | null {
-  const password = process.env.TEAM_PASSWORD;
+  const password = configuredPassword();
   if (!password) return null;
-  const secret = process.env.AUTH_SECRET ?? "";
-  const user = process.env.TEAM_USER || "fds";
-  return `fds-team:v1:${user}:${password}:${secret}`;
+  const secret = (process.env.AUTH_SECRET ?? "").trim();
+  return `fds-team:v1:${configuredUser()}:${password}:${secret}`;
 }
 
 async function hmac(message: string, keyMaterial: string): Promise<string> {
@@ -55,12 +76,14 @@ function safeEqual(a: string, b: string): boolean {
 
 /** Do these credentials match the configured team login? */
 export function credentialsValid(user: string, password: string): boolean {
-  const expectedUser = process.env.TEAM_USER || "fds";
-  const expectedPassword = process.env.TEAM_PASSWORD;
+  const expectedPassword = configuredPassword();
   if (!expectedPassword) return false;
+  // The username is matched case-insensitively — it is a shared label,
+  // not a secret, and "FDS" being rejected for "fds" is a support call
+  // for no security gain. The password is matched exactly.
   return (
-    safeEqual(user.trim(), expectedUser) &&
-    safeEqual(password, expectedPassword)
+    safeEqual(user.trim().toLowerCase(), configuredUser().toLowerCase()) &&
+    safeEqual(password.trim(), expectedPassword)
   );
 }
 

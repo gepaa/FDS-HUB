@@ -42,9 +42,23 @@ describe("credentialsValid", () => {
     expect(credentialsValid("admin", "correct-horse-battery")).toBe(false);
   });
 
-  it("does NOT trim the password", () => {
-    // A trailing space is part of the password, not noise.
-    expect(credentialsValid("fds", "correct-horse-battery ")).toBe(false);
+  it("tolerates whitespace around a pasted password", () => {
+    // Pasting into a hosting dashboard picks up a trailing newline far
+    // more often than a shared password legitimately ends in a space.
+    expect(credentialsValid("fds", " correct-horse-battery ")).toBe(true);
+  });
+
+  it("tolerates whitespace on the configured value too", () => {
+    process.env.TEAM_PASSWORD = "correct-horse-battery\n";
+    expect(credentialsValid("fds", "correct-horse-battery")).toBe(true);
+  });
+
+  it("matches the username case-insensitively", () => {
+    expect(credentialsValid("FDS", "correct-horse-battery")).toBe(true);
+  });
+
+  it("still rejects a password that merely contains the right one", () => {
+    expect(credentialsValid("fds", "correct-horse-batteryX")).toBe(false);
   });
 
   it("refuses everything when no password is configured", () => {
