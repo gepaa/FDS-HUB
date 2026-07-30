@@ -25,6 +25,8 @@ const envSchema = z.object({
   // ---- Stage 4: comms ----
   DISCORD_BOT_TOKEN: z.string().optional(),
   DISCORD_WEBHOOK_URL: z.string().optional(),
+  DISCORD_FOLLOWUPS_WEBHOOK_URL: z.string().optional(),
+  DISCORD_GUILD_ID: z.string().optional(),
   DISCORD_CHANNEL_IDS: z.string().optional(), // comma-separated
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),

@@ -110,20 +110,22 @@ export function FilterBar({
           </div>
         ) : null}
 
-        <div className="w-36 shrink-0">
-          <Select
-            value={filters.owner ?? ""}
-            onChange={(e) => set({ owner: e.target.value || null })}
-            aria-label="Filter by owner"
-          >
-            <option value="">All owners</option>
-            {OWNERS.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {recordType === "lead" ? (
+          <div className="w-36 shrink-0">
+            <Select
+              value={filters.owner ?? ""}
+              onChange={(e) => set({ owner: e.target.value || null })}
+              aria-label="Filter by owner"
+            >
+              <option value="">All owners</option>
+              {OWNERS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
 
         {/* Shown in both views — the filter applies in both, so hiding
             it on the board left an invisible active filter. */}

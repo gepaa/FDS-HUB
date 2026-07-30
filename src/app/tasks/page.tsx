@@ -73,6 +73,7 @@ export default async function TasksPage() {
     color: s.color,
     sortOrder: s.sortOrder,
     active: s.active,
+    discordUserId: s.discordUserId,
   }));
 
   return (

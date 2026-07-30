@@ -5,6 +5,7 @@ import {
   STAGE_MAP,
   type Owner,
   type Priority,
+  type TeamProfileDTO,
 } from "@/lib/domain";
 
 /** Stage pill: colored dot + label, tinted surface. Never color-alone. */
@@ -73,6 +74,26 @@ export function OwnerBadge({ owner }: { owner: Owner }) {
         <User size={10} aria-hidden />
       )}
       {isClaude ? "Claude" : "You"}
+    </span>
+  );
+}
+
+export function TeamProfileBadge({
+  profile,
+}: {
+  profile: TeamProfileDTO | null;
+}) {
+  if (!profile) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink">
+      <span
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold text-[#07111f]"
+        style={{ background: profile.color }}
+        aria-hidden
+      >
+        {profile.initials}
+      </span>
+      {profile.name}
     </span>
   );
 }

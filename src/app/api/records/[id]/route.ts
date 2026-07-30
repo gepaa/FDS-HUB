@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: Params) {
   const { id } = await params;
   const record = await prisma.crmRecord.findUnique({
     where: { id },
-    include: { interactions: true },
+    include: { interactions: true, supplierOwner: true },
   });
   if (!record) return Response.json({ error: "Not found" }, { status: 404 });
   return Response.json(toRecordDTO(record));
@@ -42,6 +42,17 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
   const data = parsed.data;
+  if (data.supplierOwnerId) {
+    const member = await prisma.teamMember.findUnique({
+      where: { id: data.supplierOwnerId },
+    });
+    if (!member?.active) {
+      return Response.json(
+        { error: "Choose an active supplier profile" },
+        { status: 400 },
+      );
+    }
+  }
 
   // Validate status against the ladder of the (possibly patched) type.
   const type = data.type ?? existing.type;
@@ -58,7 +69,7 @@ export async function PATCH(request: Request, { params }: Params) {
     }
   }
 
-  const { tags, productCategories, ...rest } = data;
+  const { tags, productCategories, supplierContacts, ...rest } = data;
   const statusChanged =
     data.status !== undefined && data.status !== existing.status;
 
@@ -73,6 +84,15 @@ export async function PATCH(request: Request, { params }: Params) {
       ...(tags !== undefined ? { tags: JSON.stringify(tags) } : {}),
       ...(productCategories !== undefined
         ? { productCategories: JSON.stringify(productCategories) }
+        : {}),
+      ...(supplierContacts !== undefined
+        ? { supplierContacts: JSON.stringify(supplierContacts) }
+        : {}),
+      // A changed date is a new reminder. Clear the exact-date dedupe marker
+      // so the next daily sweep can push it to Discord.
+      ...(rest.nextActionDate !== undefined &&
+      rest.nextActionDate?.getTime() !== existing.nextActionDate?.getTime()
+        ? { followUpReminderSentFor: null }
         : {}),
       // Status moves land on the activity log with who moved them.
       ...(statusChanged
@@ -89,7 +109,7 @@ export async function PATCH(request: Request, { params }: Params) {
           }
         : {}),
     },
-    include: { interactions: true },
+    include: { interactions: true, supplierOwner: true },
   });
   return Response.json(toRecordDTO(updated));
 }

@@ -69,7 +69,12 @@ export function getIntegrations(): IntegrationStatus[] {
       // Watch posts through. Requiring the bot token reported a live
       // webhook-only setup as disconnected.
       connected: Boolean(env.DISCORD_BOT_TOKEN || env.DISCORD_WEBHOOK_URL),
-      requiredEnv: ["DISCORD_WEBHOOK_URL", "DISCORD_BOT_TOKEN", "DISCORD_CHANNEL_IDS"],
+      requiredEnv: [
+        "DISCORD_BOT_TOKEN",
+        "DISCORD_GUILD_ID",
+        "DISCORD_CHANNEL_IDS",
+        "DISCORD_FOLLOWUPS_WEBHOOK_URL",
+      ],
       setupUrl: "https://discord.com/developers/applications",
     },
     {

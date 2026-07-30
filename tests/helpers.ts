@@ -87,6 +87,7 @@ export function buildDelivery(opts: {
 
 /** Wipe every table this integration writes to, between tests. */
 export async function resetDb() {
+  await prisma.alertLog.deleteMany();
   await prisma.callExtraction.deleteMany();
   await prisma.callArtifact.deleteMany();
   await prisma.hqTask.deleteMany();

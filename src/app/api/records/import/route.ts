@@ -88,6 +88,7 @@ export async function POST(request: Request) {
         data: {
           ...fields,
           type: "supplier",
+          supplierOwnerId: "seat_1",
           recordId,
           cluster: clusterValue,
           interactions: {

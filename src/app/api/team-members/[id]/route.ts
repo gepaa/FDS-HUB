@@ -12,6 +12,16 @@ const memberPatch = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, "Colour must be a #rrggbb hex value")
     .optional(),
   active: z.boolean().optional(),
+  discordUserId: z
+    .union([
+      z.string().trim().regex(/^\d{15,22}$/, "Use the numeric Discord user ID"),
+      z.literal(""),
+      z.null(),
+    ])
+    .optional()
+    .transform((value) =>
+      value === undefined ? undefined : value ? value : null,
+    ),
 });
 
 /**

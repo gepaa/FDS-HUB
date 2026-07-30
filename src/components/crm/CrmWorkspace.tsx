@@ -11,6 +11,7 @@ import {
   Medal,
   Plus,
   Upload,
+  UserRound,
   Users,
   Waypoints,
   XCircle,
@@ -30,6 +31,7 @@ import {
   type RecordDTO,
   type RecordType,
   type StageId,
+  type TeamProfileDTO,
 } from "@/lib/domain";
 import type { ParsedSupplier } from "@/lib/csv";
 import { api } from "@/lib/api";
@@ -61,6 +63,7 @@ import {
 
 interface CrmWorkspaceProps {
   initial: RecordDTO[];
+  profiles: TeamProfileDTO[];
   initialRecordId?: string;
   initialCreate?: boolean;
   /** Stage to pre-filter on, from /crm?stage=<id> (pipeline drill-in). */
@@ -80,6 +83,7 @@ type Scope = "pipeline" | "closed";
 
 export function CrmWorkspace({
   initial,
+  profiles,
   initialRecordId,
   initialCreate,
   initialStage,
@@ -88,6 +92,9 @@ export function CrmWorkspace({
   const [records, setRecords] = useState<RecordDTO[]>(initial);
   const [recordType, setRecordType] = useState<RecordType>("supplier");
   const [scope, setScope] = useState<Scope>("pipeline");
+  const [activeProfileId, setActiveProfileId] = useState(
+    profiles[0]?.id ?? "seat_1",
+  );
   const [view, setView] = useState<"board" | "table">("board");
   const [filters, setFilters] = useState<CrmFilters>(defaultFilters);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -105,7 +112,11 @@ export function CrmWorkspace({
       const r = initial.find((x) => x.id === initialRecordId);
       if (r) {
         setRecordType(r.type);
-        if (isClosedSupplier(r)) setScope("closed");
+        if (isClosedSupplier(r)) {
+          setScope("closed");
+        } else if (r.type === "supplier" && r.supplierOwnerId) {
+          setActiveProfileId(r.supplierOwnerId);
+        }
       }
     }
   }, [initialRecordId, initial]);
@@ -150,14 +161,26 @@ export function CrmWorkspace({
     [ofType, isSupplier],
   );
 
-  /** What the pipeline board/table works with. */
-  const pipelineRecords = useMemo(
+  /** All active records, before a supplier teammate profile narrows them. */
+  const activeRecords = useMemo(
     () =>
       isSupplier
         ? ofType.filter((r) => !CLOSED_SUPPLIER_STAGE_SET.has(r.status))
         : ofType,
     [ofType, isSupplier],
   );
+
+  /** What the current teammate's board/table works with. */
+  const pipelineRecords = useMemo(
+    () =>
+      isSupplier
+        ? activeRecords.filter((r) => r.supplierOwnerId === activeProfileId)
+        : activeRecords,
+    [activeRecords, activeProfileId, isSupplier],
+  );
+
+  const activeProfile =
+    profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0];
 
   const pipelineStages = isSupplier
     ? ACTIVE_SUPPLIER_STAGES
@@ -286,14 +309,14 @@ export function CrmWorkspace({
       } else if (filters.rank && r.rank !== filters.rank) {
         return false;
       }
-      if (filters.owner && r.owner !== filters.owner) return false;
+      if (!isSupplier && filters.owner && r.owner !== filters.owner) return false;
       // Applies in both views. It used to be gated on the table, so a
       // stage filter set there went silently inert on the board.
       if (filters.stage && r.status !== filters.stage) return false;
       if (filters.followUpOnly && !needsFollowUp(r)) return false;
       return true;
     });
-  }, [pipelineRecords, filters]);
+  }, [pipelineRecords, filters, isSupplier]);
 
   // ---------- mutations ----------
   const moveStage = async (id: string, status: StageId) => {
@@ -538,9 +561,13 @@ export function CrmWorkspace({
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl text-ink">CRM</h1>
+          <h1 className="font-display text-3xl text-ink">
+            {isSupplier ? "Supplier CRM" : "Lead CRM"}
+          </h1>
           <p className="mt-1.5 text-sm text-muted">
-            {supplierCount} suppliers · {leadCount} leads ·{" "}
+            {isSupplier && scope === "pipeline" && activeProfile
+              ? `${activeProfile.name}'s supplier list · `
+              : `${supplierCount} suppliers · ${leadCount} leads · `}
             {followUpCount > 0
               ? `${followUpCount} need follow-up`
               : "no follow-ups due"}
@@ -554,6 +581,9 @@ export function CrmWorkspace({
             onChange={(id) => {
               setRecordType(id as RecordType);
               setScope("pipeline");
+              if (id === "supplier" && profiles[0]) {
+                setActiveProfileId(profiles[0].id);
+              }
               setFilters(defaultFilters);
             }}
           />
@@ -602,30 +632,40 @@ export function CrmWorkspace({
 
       {isSupplier ? (
         <nav
-          aria-label="Supplier scope"
-          className="flex items-center gap-6 border-b border-hairline"
+          aria-label="Supplier profiles"
+          className="flex items-center gap-2 overflow-x-auto border-b border-hairline pb-2"
         >
-          {(
-            [
-              { id: "pipeline", label: "Pipeline", count: pipelineRecords.length },
-              { id: "closed", label: "Closed", count: closedRecords.length },
-            ] as const
-          ).map((tab) => {
-            const active = scope === tab.id;
+          {profiles.map((profile) => {
+            const count = activeRecords.filter(
+              (record) => record.supplierOwnerId === profile.id,
+            ).length;
+            const active =
+              scope === "pipeline" && activeProfileId === profile.id;
             return (
               <button
-                key={tab.id}
+                key={profile.id}
                 type="button"
-                onClick={() => setScope(tab.id)}
+                onClick={() => {
+                  setActiveProfileId(profile.id);
+                  setScope("pipeline");
+                  setFilters(defaultFilters);
+                }}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "press -mb-px inline-flex items-center gap-2 border-b-2 px-1 pb-2.5 text-sm font-medium",
+                  "press inline-flex shrink-0 items-center gap-2 rounded-control border px-3 py-2 text-sm font-medium",
                   active
-                    ? "border-[var(--accent)] text-ink"
-                    : "border-transparent text-muted hover:text-ink",
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-ink"
+                    : "border-hairline bg-[var(--panel-soft)] text-muted hover:text-ink",
                 )}
               >
-                {tab.label}
+                <span
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-[#07111f]"
+                  style={{ background: profile.color }}
+                  aria-hidden
+                >
+                  {profile.initials}
+                </span>
+                {profile.name}
                 <span
                   className={cn(
                     "num rounded-full px-1.5 py-0.5 text-[11px]",
@@ -634,11 +674,31 @@ export function CrmWorkspace({
                       : "bg-[var(--panel-soft)] text-muted",
                   )}
                 >
-                  {tab.count}
+                  {count}
                 </span>
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={() => {
+              setScope("closed");
+              setFilters(defaultFilters);
+            }}
+            aria-current={scope === "closed" ? "page" : undefined}
+            className={cn(
+              "press inline-flex shrink-0 items-center gap-2 rounded-control border px-3 py-2 text-sm font-medium",
+              scope === "closed"
+                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-ink"
+                : "border-hairline bg-[var(--panel-soft)] text-muted hover:text-ink",
+            )}
+          >
+            <Archive size={15} aria-hidden />
+            Closed suppliers
+            <span className="num rounded-full bg-[var(--panel-soft)] px-1.5 py-0.5 text-[11px] text-muted">
+              {closedRecords.length}
+            </span>
+          </button>
         </nav>
       ) : null}
 
@@ -676,9 +736,13 @@ export function CrmWorkspace({
         ) : (
           <>
             <StatTile
-              label={recordType === "lead" ? "Total leads" : "In pipeline"}
+              label={
+                recordType === "lead"
+                  ? "Total leads"
+                  : `${activeProfile?.name ?? "Profile"}'s suppliers`
+              }
               value={pipelineRecords.length}
-              icon={Users}
+              icon={isSupplier ? UserRound : Users}
               tone="accent"
             />
             {isSupplier ? (
@@ -759,6 +823,8 @@ export function CrmWorkspace({
       <RecordDrawer
         record={creating ? null : selected}
         createType={recordType}
+        profiles={profiles}
+        defaultSupplierOwnerId={activeProfileId}
         clusterOptions={allClusters}
         open={creating || selected !== null}
         onClose={() => {

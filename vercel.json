@@ -10,6 +10,10 @@
     {
       "path": "/api/cron/quo-drain",
       "schedule": "30 13 * * *"
+    },
+    {
+      "path": "/api/cron/supplier-follow-ups",
+      "schedule": "0 14 * * *"
     }
   ]
 }

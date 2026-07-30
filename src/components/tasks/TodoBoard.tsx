@@ -388,16 +388,26 @@ function TeamModal({
   onError: (e: unknown) => void;
 }) {
   const [names, setNames] = useState<Record<string, string>>({});
+  const [discordIds, setDiscordIds] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   const nameFor = (s: SeatDTO) => names[s.id] ?? s.name;
+  const discordIdFor = (s: SeatDTO) =>
+    discordIds[s.id] ?? s.discordUserId ?? "";
 
   const save = async () => {
     setSaving(true);
     try {
       for (const seat of seats) {
         const next = nameFor(seat).trim();
-        if (!next || next === seat.name) continue;
+        const nextDiscordId = discordIdFor(seat).trim();
+        if (
+          !next ||
+          (next === seat.name &&
+            nextDiscordId === (seat.discordUserId ?? ""))
+        ) {
+          continue;
+        }
         const res = await fetch(`/api/team-members/${seat.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -409,6 +419,7 @@ function TeamModal({
               .slice(0, 2)
               .map((w) => w[0]?.toUpperCase() ?? "")
               .join(""),
+            discordUserId: nextDiscordId || null,
           }),
         });
         if (!res.ok) {
@@ -447,16 +458,30 @@ function TeamModal({
       </p>
       <div className="flex flex-col gap-2">
         {seats.map((s) => (
-          <label key={s.id} className="flex items-center gap-2">
+          <div key={s.id} className="surface-muted flex items-center gap-2 rounded-card p-2">
             <SeatAvatar seat={s} owner={s.id} />
-            <Input
-              value={nameFor(s)}
-              onChange={(e) =>
-                setNames((prev) => ({ ...prev, [s.id]: e.target.value }))
-              }
-              aria-label={`Name for ${s.name}`}
-            />
-          </label>
+            <div className="grid flex-1 grid-cols-2 gap-2">
+              <Input
+                value={nameFor(s)}
+                onChange={(e) =>
+                  setNames((prev) => ({ ...prev, [s.id]: e.target.value }))
+                }
+                aria-label={`Name for ${s.name}`}
+              />
+              <Input
+                value={discordIdFor(s)}
+                onChange={(e) =>
+                  setDiscordIds((prev) => ({
+                    ...prev,
+                    [s.id]: e.target.value,
+                  }))
+                }
+                inputMode="numeric"
+                placeholder="Discord user ID"
+                aria-label={`Discord user ID for ${s.name}`}
+              />
+            </div>
+          </div>
         ))}
       </div>
     </Modal>

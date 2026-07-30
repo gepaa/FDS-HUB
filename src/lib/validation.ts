@@ -55,6 +55,31 @@ const stringList = z
   .optional()
   .transform((v) => v ?? []);
 
+const supplierContact = z.object({
+  id: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(120),
+  role: z.string().trim().max(120).default(""),
+  phone: z.string().trim().max(80).default(""),
+  email: z
+    .string()
+    .trim()
+    .max(200)
+    .refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), {
+      message: "Enter a valid contact email address",
+    })
+    .default(""),
+  notes: z.string().trim().max(1000).default(""),
+  isPrimary: z.boolean().default(false),
+});
+
+const nullableTeamMemberId = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .nullable()
+  .optional();
+
 /**
  * The unified record input. `status` is validated against the ladder
  * for the record's `type` in refine() — the DB-level default is legacy
@@ -80,6 +105,7 @@ export const recordInput = z
     phone: nullableTrimmed,
     status: z.string().optional(),
     owner: z.enum(["claude", "you", "unassigned"]).default("unassigned"),
+    supplierOwnerId: nullableTeamMemberId,
     priority: z
       .union([z.enum(["hot", "warm", "cold"]), z.literal(""), z.null()])
       .optional()
@@ -97,6 +123,9 @@ export const recordInput = z
     dealerProgram: nullableTrimmed,
     mediaPermission: nullableTrimmed,
     authorizationStatus: nullableTrimmed,
+    dealerApplicationSigned: z.boolean().optional().default(false),
+    initialEmailSent: z.boolean().optional().default(false),
+    supplierContacts: z.array(supplierContact).max(25).optional().default([]),
     productInterest: nullableTrimmed,
     intent: nullableTrimmed,
     quoteAmount: z.number().nonnegative().nullable().optional().default(null),
@@ -146,6 +175,7 @@ export const recordPatch = z.object({
   phone: nullableTrimmed,
   status: z.string().optional(),
   owner: z.enum(["claude", "you", "unassigned"]).optional(),
+  supplierOwnerId: nullableTeamMemberId,
   priority: z
     .union([z.enum(["hot", "warm", "cold"]), z.literal(""), z.null()])
     .optional()
@@ -163,6 +193,9 @@ export const recordPatch = z.object({
   dealerProgram: nullableTrimmed,
   mediaPermission: nullableTrimmed,
   authorizationStatus: nullableTrimmed,
+  dealerApplicationSigned: z.boolean().optional(),
+  initialEmailSent: z.boolean().optional(),
+  supplierContacts: z.array(supplierContact).max(25).optional(),
   productInterest: nullableTrimmed,
   intent: nullableTrimmed,
   quoteAmount: z.number().nonnegative().nullable().optional(),

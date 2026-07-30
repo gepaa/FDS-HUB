@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, PhoneCall, Send, Trash2 } from "lucide-react";
+import {
+  ExternalLink,
+  PhoneCall,
+  Plus,
+  Send,
+  Trash2,
+} from "lucide-react";
 import {
   INTERACTION_TYPES,
   OWNERS,
@@ -12,13 +18,20 @@ import {
   type InteractionType,
   type RecordDTO,
   type RecordType,
+  type SupplierContactDTO,
+  type TeamProfileDTO,
 } from "@/lib/domain";
 import { shortDate } from "@/lib/utils";
 import { Drawer } from "@/components/kit/Drawer";
 import { Button } from "@/components/kit/Button";
 import { Field, Input, Select, Textarea } from "@/components/kit/Field";
 import { Chip } from "@/components/kit/Chip";
-import { OwnerBadge, PriorityBadge, StageBadge } from "@/components/crm/badges";
+import {
+  OwnerBadge,
+  PriorityBadge,
+  StageBadge,
+  TeamProfileBadge,
+} from "@/components/crm/badges";
 import { QuickActionBar, type QuickAction } from "@/components/crm/QuickActions";
 import { CallTimeline } from "@/components/crm/CallTimeline";
 import { DialButton } from "@/components/crm/DialButton";
@@ -39,6 +52,7 @@ export interface RecordFormData {
   phone?: string | null;
   status?: string;
   owner?: string;
+  supplierOwnerId?: string | null;
   priority?: string | null;
   contextSummary?: string | null;
   mapPolicy?: string | null;
@@ -49,6 +63,9 @@ export interface RecordFormData {
   dealerProgram?: string | null;
   mediaPermission?: string | null;
   authorizationStatus?: string | null;
+  dealerApplicationSigned?: boolean;
+  initialEmailSent?: boolean;
+  supplierContacts?: SupplierContactDTO[];
   productInterest?: string | null;
   intent?: string | null;
   quoteAmount?: number | null;
@@ -62,6 +79,8 @@ interface RecordDrawerProps {
   record: RecordDTO | null; // null = create mode
   open: boolean;
   createType?: RecordType;
+  profiles: TeamProfileDTO[];
+  defaultSupplierOwnerId: string;
   /** Cluster values present in the DB, so an off-list one survives a save. */
   clusterOptions: string[];
   onClose: () => void;
@@ -100,7 +119,11 @@ function validate(form: RecordFormData): FormErrors {
   return errors;
 }
 
-function buildForm(r: RecordDTO | null, createType: RecordType): RecordFormData {
+function buildForm(
+  r: RecordDTO | null,
+  createType: RecordType,
+  defaultSupplierOwnerId: string,
+): RecordFormData {
   return {
     type: r?.type ?? createType,
     name: r?.name ?? "",
@@ -116,6 +139,7 @@ function buildForm(r: RecordDTO | null, createType: RecordType): RecordFormData 
     phone: r?.phone ?? "",
     status: r?.status ?? (createType === "lead" ? "NEW" : "SOURCED"),
     owner: r?.owner ?? "unassigned",
+    supplierOwnerId: r?.supplierOwnerId ?? defaultSupplierOwnerId,
     priority: r?.priority ?? "",
     contextSummary: r?.contextSummary ?? "",
     mapPolicy: r?.mapPolicy ?? "",
@@ -126,6 +150,9 @@ function buildForm(r: RecordDTO | null, createType: RecordType): RecordFormData 
     dealerProgram: r?.dealerProgram ?? "",
     mediaPermission: r?.mediaPermission ?? "",
     authorizationStatus: r?.authorizationStatus ?? "",
+    dealerApplicationSigned: r?.dealerApplicationSigned ?? false,
+    initialEmailSent: r?.initialEmailSent ?? false,
+    supplierContacts: r?.supplierContacts ?? [],
     productInterest: r?.productInterest ?? "",
     intent: r?.intent ?? "",
     quoteAmount: r?.quoteAmount ?? null,
@@ -142,6 +169,8 @@ export function RecordDrawer({
   record,
   open,
   createType = "supplier",
+  profiles,
+  defaultSupplierOwnerId,
   clusterOptions,
   onClose,
   onSave,
@@ -152,7 +181,7 @@ export function RecordDrawer({
 }: RecordDrawerProps) {
   const creating = record === null;
   const [form, setForm] = useState<RecordFormData>(() =>
-    buildForm(record, createType),
+    buildForm(record, createType, defaultSupplierOwnerId),
   );
   const [errors, setErrors] = useState<FormErrors>({});
   const [logType, setLogType] = useState<InteractionType>("note");
@@ -163,15 +192,17 @@ export function RecordDrawer({
 
   useEffect(() => {
     if (open) {
-      setForm(buildForm(record, createType));
+      setForm(buildForm(record, createType, defaultSupplierOwnerId));
       setErrors({});
       setLogError(null);
       setConfirmDeleteLog(null);
     }
-  }, [open, record, createType]);
+  }, [open, record, createType, defaultSupplierOwnerId]);
 
   const type: RecordType = (form.type as RecordType) ?? "supplier";
   const stages = useMemo(() => stagesFor(type), [type]);
+  const formProfile =
+    profiles.find((profile) => profile.id === form.supplierOwnerId) ?? null;
 
   // The record's own cluster is always offered, even if a later import
   // introduced one outside the seeded 8 — otherwise the select would
@@ -228,6 +259,41 @@ export function RecordDrawer({
     setLogBody("");
   };
 
+  const addContact = () => {
+    const contact: SupplierContactDTO = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `contact-${Date.now()}`,
+      name: "",
+      role: "",
+      phone: "",
+      email: "",
+      notes: "",
+      isPrimary: (form.supplierContacts?.length ?? 0) === 0,
+    };
+    set({ supplierContacts: [...(form.supplierContacts ?? []), contact] });
+  };
+
+  const updateContact = (
+    id: string,
+    patch: Partial<SupplierContactDTO>,
+  ) => {
+    set({
+      supplierContacts: (form.supplierContacts ?? []).map((contact) =>
+        contact.id === id ? { ...contact, ...patch } : contact,
+      ),
+    });
+  };
+
+  const removeContact = (id: string) => {
+    set({
+      supplierContacts: (form.supplierContacts ?? []).filter(
+        (contact) => contact.id !== id,
+      ),
+    });
+  };
+
   return (
     <Drawer
       open={open}
@@ -247,7 +313,11 @@ export function RecordDrawer({
             ) : null}
             <StageBadge stage={record.status} />
             <PriorityBadge priority={record.priority} />
-            <OwnerBadge owner={record.owner} />
+            {record.type === "supplier" ? (
+              <TeamProfileBadge profile={record.supplierOwner} />
+            ) : (
+              <OwnerBadge owner={record.owner} />
+            )}
           </span>
         )
       }
@@ -295,7 +365,12 @@ export function RecordDrawer({
                     value={type}
                     onChange={(e) => {
                       const t = e.target.value as RecordType;
-                      set({ type: t, status: t === "lead" ? "NEW" : "SOURCED" });
+                      set({
+                        type: t,
+                        status: t === "lead" ? "NEW" : "SOURCED",
+                        supplierOwnerId:
+                          t === "supplier" ? defaultSupplierOwnerId : null,
+                      });
                     }}
                   >
                     <option value="supplier">Supplier</option>
@@ -319,21 +394,41 @@ export function RecordDrawer({
                 </Select>
               )}
             </Field>
-            <Field label="Owner (who moves next)">
-              {(id) => (
-                <Select
-                  id={id}
-                  value={form.owner}
-                  onChange={(e) => set({ owner: e.target.value })}
-                >
-                  {OWNERS.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
+            {type === "supplier" ? (
+              <Field label="Supplier profile">
+                {(id) => (
+                  <Select
+                    id={id}
+                    value={form.supplierOwnerId ?? ""}
+                    onChange={(e) =>
+                      set({ supplierOwnerId: e.target.value || null })
+                    }
+                  >
+                    {profiles.map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.name}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+            ) : (
+              <Field label="Owner (who moves next)">
+                {(id) => (
+                  <Select
+                    id={id}
+                    value={form.owner}
+                    onChange={(e) => set({ owner: e.target.value })}
+                  >
+                    {OWNERS.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+            )}
             <Field label="Priority">
               {(id) => (
                 <Select
@@ -375,7 +470,15 @@ export function RecordDrawer({
                 />
               )}
             </Field>
-            <Field label="Due" error={errors.nextActionDate}>
+            <Field
+              label="Follow-up date"
+              error={errors.nextActionDate}
+              hint={
+                type === "supplier" && formProfile
+                  ? `Discord will remind ${formProfile.name} that day.`
+                  : undefined
+              }
+            >
               {(id) => (
                 <Input
                   id={id}
@@ -468,6 +571,28 @@ export function RecordDrawer({
             <h3 className="text-xs font-semibold tracking-widest text-muted uppercase">
               Supplier details
             </h3>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="surface-muted flex cursor-pointer items-center gap-2 rounded-control px-3 py-2.5 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={form.initialEmailSent === true}
+                  onChange={(e) => set({ initialEmailSent: e.target.checked })}
+                  className="h-4 w-4 accent-[var(--accent)]"
+                />
+                Emailed before
+              </label>
+              <label className="surface-muted flex cursor-pointer items-center gap-2 rounded-control px-3 py-2.5 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={form.dealerApplicationSigned === true}
+                  onChange={(e) =>
+                    set({ dealerApplicationSigned: e.target.checked })
+                  }
+                  className="h-4 w-4 accent-[var(--accent)]"
+                />
+                Dealer application signed
+              </label>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Niche">
                 {(id) => (
@@ -630,6 +755,116 @@ export function RecordDrawer({
                   />
                 )}
               </Field>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-semibold tracking-widest text-muted uppercase">
+                  Contact people
+                </h4>
+                <p className="mt-1 text-[11px] text-muted">
+                  Sales reps, dealer managers, and every direct line you are
+                  redirected to.
+                </p>
+              </div>
+              <Button variant="subtle" size="sm" onClick={addContact}>
+                <Plus size={13} aria-hidden />
+                Add person
+              </Button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {(form.supplierContacts ?? []).map((contact) => (
+                <div
+                  key={contact.id}
+                  className="surface-muted grid grid-cols-2 gap-2 rounded-card p-3"
+                >
+                  <Field label="Name">
+                    {(id) => (
+                      <Input
+                        id={id}
+                        value={contact.name}
+                        onChange={(e) =>
+                          updateContact(contact.id, { name: e.target.value })
+                        }
+                        placeholder="Mark"
+                      />
+                    )}
+                  </Field>
+                  <Field label="Role">
+                    {(id) => (
+                      <Input
+                        id={id}
+                        value={contact.role}
+                        onChange={(e) =>
+                          updateContact(contact.id, { role: e.target.value })
+                        }
+                        placeholder="Sales representative"
+                      />
+                    )}
+                  </Field>
+                  <Field label="Direct phone">
+                    {(id) => (
+                      <Input
+                        id={id}
+                        value={contact.phone}
+                        onChange={(e) =>
+                          updateContact(contact.id, { phone: e.target.value })
+                        }
+                      />
+                    )}
+                  </Field>
+                  <Field label="Direct email">
+                    {(id) => (
+                      <Input
+                        id={id}
+                        type="email"
+                        value={contact.email}
+                        onChange={(e) =>
+                          updateContact(contact.id, { email: e.target.value })
+                        }
+                      />
+                    )}
+                  </Field>
+                  <Field label="What to know" className="col-span-2">
+                    {(id) => (
+                      <Textarea
+                        id={id}
+                        value={contact.notes}
+                        onChange={(e) =>
+                          updateContact(contact.id, { notes: e.target.value })
+                        }
+                        placeholder="Best time to call, what they asked us to email, decision authority…"
+                      />
+                    )}
+                  </Field>
+                  <label className="flex items-center gap-2 text-xs text-muted">
+                    <input
+                      type="checkbox"
+                      checked={contact.isPrimary}
+                      onChange={(e) =>
+                        updateContact(contact.id, {
+                          isPrimary: e.target.checked,
+                        })
+                      }
+                      className="h-4 w-4 accent-[var(--accent)]"
+                    />
+                    Primary contact
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => removeContact(contact.id)}
+                    className="press ml-auto inline-flex items-center gap-1 text-xs text-danger"
+                  >
+                    <Trash2 size={12} aria-hidden />
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {(form.supplierContacts?.length ?? 0) === 0 ? (
+                <p className="rounded-control border border-dashed border-hairline px-3 py-4 text-center text-xs text-muted">
+                  No direct contacts yet.
+                </p>
+              ) : null}
             </div>
           </section>
         ) : (

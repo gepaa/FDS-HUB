@@ -7,8 +7,14 @@ import type {
   Owner,
   Priority,
   Actor,
+  SupplierContactDTO,
+  TeamProfileDTO,
 } from "@/lib/domain";
-import type { CrmRecord, Interaction } from "@/generated/prisma/client";
+import type {
+  CrmRecord,
+  Interaction,
+  TeamMember,
+} from "@/generated/prisma/client";
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
@@ -20,6 +26,39 @@ const jsonList = (s: string): string[] => {
     return [];
   }
 };
+
+const supplierContacts = (s: string): SupplierContactDTO[] => {
+  try {
+    const value = JSON.parse(s);
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter((item) => item && typeof item === "object")
+      .map((item) => ({
+        id: typeof item.id === "string" ? item.id : "",
+        name: typeof item.name === "string" ? item.name : "",
+        role: typeof item.role === "string" ? item.role : "",
+        phone: typeof item.phone === "string" ? item.phone : "",
+        email: typeof item.email === "string" ? item.email : "",
+        notes: typeof item.notes === "string" ? item.notes : "",
+        isPrimary: item.isPrimary === true,
+      }))
+      .filter((item) => item.id && item.name);
+  } catch {
+    return [];
+  }
+};
+
+export function toTeamProfileDTO(member: TeamMember): TeamProfileDTO {
+  return {
+    id: member.id,
+    name: member.name,
+    initials: member.initials,
+    color: member.color,
+    sortOrder: member.sortOrder,
+    active: member.active,
+    discordUserId: member.discordUserId,
+  };
+}
 
 export function toInteractionDTO(i: Interaction): InteractionDTO {
   return {
@@ -34,7 +73,10 @@ export function toInteractionDTO(i: Interaction): InteractionDTO {
 
 /** Prisma record (+interactions) → JSON-safe DTO for the client. */
 export function toRecordDTO(
-  r: CrmRecord & { interactions?: Interaction[] },
+  r: CrmRecord & {
+    interactions?: Interaction[];
+    supplierOwner?: TeamMember | null;
+  },
 ): RecordDTO {
   return {
     id: r.id,
@@ -53,6 +95,8 @@ export function toRecordDTO(
     phone: r.phone,
     status: r.status as StageId,
     owner: r.owner as Owner,
+    supplierOwnerId: r.supplierOwnerId,
+    supplierOwner: r.supplierOwner ? toTeamProfileDTO(r.supplierOwner) : null,
     priority: (r.priority as Priority | null) ?? null,
     contextSummary: r.contextSummary,
     tags: jsonList(r.tags),
@@ -67,6 +111,9 @@ export function toRecordDTO(
     dealerProgram: r.dealerProgram,
     mediaPermission: r.mediaPermission,
     authorizationStatus: r.authorizationStatus,
+    dealerApplicationSigned: r.dealerApplicationSigned,
+    initialEmailSent: r.initialEmailSent,
+    supplierContacts: supplierContacts(r.supplierContacts),
     productInterest: r.productInterest,
     intent: r.intent,
     quoteAmount: r.quoteAmount,

@@ -13,6 +13,7 @@ import {
   PriorityBadge,
   RankBadge,
   StageBadge,
+  TeamProfileBadge,
 } from "@/components/crm/badges";
 import { GlassPanel } from "@/components/kit/GlassPanel";
 import {
@@ -100,13 +101,15 @@ export function TableView({
       key: "owner",
       header: "Owner",
       accessor: (r) =>
-        r.owner === "unassigned" ? (
+        r.type === "supplier" ? (
+          <TeamProfileBadge profile={r.supplierOwner} />
+        ) : r.owner === "unassigned" ? (
           <span className="text-xs text-muted">—</span>
         ) : (
           <OwnerBadge owner={r.owner} />
         ),
-      sortValue: (r) => r.owner,
-      width: "90px",
+      sortValue: (r) => r.supplierOwner?.name ?? r.owner,
+      width: "110px",
     },
     {
       key: "context",

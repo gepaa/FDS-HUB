@@ -51,10 +51,10 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/crm",
-    label: "CRM",
+    label: "Supplier CRM",
     icon: Users,
     section: "hq",
-    description: "Supplier + lead pipelines — status, context, next action.",
+    description: "Team supplier outreach, follow-ups, and the shared closed book.",
   },
   {
     href: "/passwords",
