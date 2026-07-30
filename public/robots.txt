@@ -1,0 +1,5 @@
+# The hub has no access gate (see docs/DEPLOYMENT.md, "Who can reach this").
+# This asks honest crawlers to stay out so the CRM doesn't end up in a
+# search index. It is a request, not a control.
+User-agent: *
+Disallow: /

@@ -27,12 +27,6 @@ export function AppShell({
 }) {
   const pathname = usePathname();
 
-  // The login screen is the front door, not a room in the house: it
-  // renders without the rail, top bar or incoming-call alert, all of
-  // which would be showing console furniture to someone not yet
-  // signed in.
-  if (pathname === "/login") return <>{children}</>;
-
   return (
     <div className="min-h-dvh">
       <LeftRail />

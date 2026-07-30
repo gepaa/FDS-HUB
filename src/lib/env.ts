@@ -139,11 +139,14 @@ const envSchema = z.object({
     .optional()
     .transform((v) => v !== "false" && v !== "0" && v !== "no"),
 
-  // ---- Team access gate (production) — see src/proxy.ts ----
-  TEAM_USER: z.string().optional(), // defaults to "fds"
-  TEAM_PASSWORD: z.string().optional(), // unset = gate off (local dev)
-
-  // ---- Stage 7: auth ----
+  // ---- Team access gate: REMOVED 2026-07-30, by request ----
+  // The hub is open to anyone with the URL. TEAM_USER / TEAM_PASSWORD /
+  // AUTH_SECRET are still accepted here so a deployment carrying those
+  // variables doesn't fail validation, but nothing reads them any more.
+  // Restoring the gate means reverting the commit that removed
+  // src/proxy.ts and src/lib/team-auth.ts.
+  TEAM_USER: z.string().optional(),
+  TEAM_PASSWORD: z.string().optional(),
   AUTH_SECRET: z.string().optional(),
 
   NODE_ENV: z
