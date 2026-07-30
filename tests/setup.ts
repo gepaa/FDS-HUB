@@ -14,6 +14,9 @@ process.env.QUO_API_KEY = "test-api-key";
 process.env.QUO_WEBHOOK_SECRET =
   "whsec_dGVzdC13ZWJob29rLXNlY3JldC12YWx1ZS0wMTIzNDU2Nzg5";
 process.env.QUO_DEFAULT_REGION = "US";
+// Lets tests act as the agent (Authorization: Bearer …) and prove the
+// boundaries that separate it from a human — see todo-api.test.ts.
+process.env.AGENT_API_KEY = "test-agent-key";
 // The AI pass is exercised through its own unit tests with a stubbed
 // provider; integration tests must never reach for a model.
 process.env.QUO_AI_EXTRACTION_ENABLED = "false";

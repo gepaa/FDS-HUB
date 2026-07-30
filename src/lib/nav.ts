@@ -80,10 +80,11 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/tasks",
-    label: "Task Queue",
+    label: "To-Do Board",
     icon: ListChecks,
     section: "hq",
-    description: "Assign work in plain language; the PM runs it.",
+    description:
+      "Everything the team owes — auto-sorted, assigned, with docs attached.",
   },
   {
     href: "/chat",

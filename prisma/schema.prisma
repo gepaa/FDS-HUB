@@ -196,10 +196,68 @@ model HqTask {
   aiGenerated    Boolean        @default(false)
   humanConfirmed Boolean        @default(false)
 
+  // Shared to-do board. `assignee` (claude | you) stays the agent-facing
+  // field so every existing row and the agent tools keep working;
+  // `assigneeId` is the human seat that owns it, null when it is the
+  // agent's or nobody's. `pinned` is the one manual override on an
+  // otherwise automatic sort. `aiBrief` is the model's expansion of a
+  // one-line note into a real task — advisory text, never an action.
+  assigneeId  String?
+  assignedTo  TeamMember?      @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  pinned      Boolean          @default(false)
+  aiBrief     String?
+  aiBriefAt   DateTime?
+  attachments TaskAttachment[]
+
   @@index([status, createdAt])
   @@index([recordId])
   @@index([activityId])
   @@index([dueDate])
+  @@index([assigneeId])
+}
+
+// ---------------- To-do board: seats and attachments ----------------
+//
+// The human side of the board is three seats. They are rows, not an
+// enum, so renaming a teammate is an edit in the UI rather than a
+// migration + deploy. Seats are never deleted (a deleted seat would
+// orphan its history); `active` hides one from the pickers instead.
+model TeamMember {
+  id        String   @id
+  name      String
+  initials  String
+  color     String   @default("#8AB4F8")
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks HqTask[]
+
+  @@index([sortOrder])
+}
+
+// A doc or link pinned to a to-do.
+//
+// Files are stored inline in the row rather than in object storage: the
+// hub has no blob store configured, and the things that get attached
+// here are quotes, specs and screenshots. MAX_ATTACHMENT_BYTES in
+// src/lib/tasks/attachments.ts caps it well under the 4.5 MB serverless
+// request limit — anything bigger belongs in Drive with a link here.
+model TaskAttachment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      HqTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  kind      String // link | file
+  label     String
+  url       String?
+  mimeType  String?
+  sizeBytes Int?
+  data      Bytes?
+  addedBy   String   @default("you")
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
 }
 
 // ---------------- Live Sales Cockpit ----------------

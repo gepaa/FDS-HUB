@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { resolveActor } from "@/lib/agent-auth";
+import { ownerColumns } from "@/lib/tasks/board";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,10 @@ const taskPatch = z.object({
   // so "did a person actually agree to this?" stays answerable.
   humanConfirmed: z.boolean().optional(),
   dueDate: z.string().datetime().nullable().optional(),
+  // Board fields: "claude" | "unassigned" | seat id.
+  owner: z.string().trim().min(1).max(40).optional(),
+  priority: z.enum(["hot", "warm", "cold"]).nullable().optional(),
+  pinned: z.boolean().optional(),
 });
 
 /** PATCH /api/tasks/[id] — update a task. The agent can start/finish
@@ -64,10 +69,30 @@ export async function PATCH(
     );
   }
 
+  // Who a piece of work belongs to is a human decision. The agent can
+  // report on a task and finish its own, but it cannot put work on a
+  // teammate's plate or promote a card up the board.
+  if (actor === "claude" && (data.owner !== undefined || data.pinned !== undefined)) {
+    return Response.json(
+      { error: "Agent may not reassign or pin tasks" },
+      { status: 403 },
+    );
+  }
+
+  if (data.owner && data.owner !== "claude" && data.owner !== "unassigned") {
+    const seat = await prisma.teamMember.findUnique({ where: { id: data.owner } });
+    if (!seat) {
+      return Response.json({ error: "No such team member" }, { status: 400 });
+    }
+  }
+
+  const { owner, ...fields } = data;
+
   const updated = await prisma.hqTask.update({
     where: { id },
     data: {
-      ...data,
+      ...fields,
+      ...(owner ? ownerColumns(owner) : {}),
       ...(data.dueDate !== undefined
         ? { dueDate: data.dueDate ? new Date(data.dueDate) : null }
         : {}),

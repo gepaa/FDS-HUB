@@ -182,10 +182,56 @@ model HqTask {
   aiGenerated    Boolean        @default(false)
   humanConfirmed Boolean        @default(false)
 
+  // Shared to-do board — see prisma/schema.prisma for the rationale.
+  assigneeId  String?
+  assignedTo  TeamMember?      @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  pinned      Boolean          @default(false)
+  aiBrief     String?
+  aiBriefAt   DateTime?
+  attachments TaskAttachment[]
+
   @@index([status, createdAt])
   @@index([recordId])
   @@index([activityId])
   @@index([dueDate])
+  @@index([assigneeId])
+}
+
+// ---------------- To-do board: seats and attachments ----------------
+//
+// Three human seats, stored as rows so renaming a teammate is a UI edit
+// rather than a migration. Seats are deactivated, never deleted.
+model TeamMember {
+  id        String   @id
+  name      String
+  initials  String
+  color     String   @default("#8AB4F8")
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks HqTask[]
+
+  @@index([sortOrder])
+}
+
+// A doc or link pinned to a to-do. Files live inline in the row (capped
+// by MAX_ATTACHMENT_BYTES); anything large belongs in Drive with a link.
+model TaskAttachment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      HqTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  kind      String // link | file
+  label     String
+  url       String?
+  mimeType  String?
+  sizeBytes Int?
+  data      Bytes?
+  addedBy   String   @default("you")
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
 }
 
 // ---------------- Live Sales Cockpit ----------------
