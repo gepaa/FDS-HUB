@@ -4,7 +4,12 @@ import { useDraggable } from "@dnd-kit/core";
 import { Clock, MessageSquareText } from "lucide-react";
 import { needsFollowUp, type RecordDTO } from "@/lib/domain";
 import { cn, shortDate } from "@/lib/utils";
-import { OwnerBadge, PriorityBadge, RankBadge } from "@/components/crm/badges";
+import {
+  OwnerBadge,
+  PriorityBadge,
+  RankBadge,
+  TeamProfileBadge,
+} from "@/components/crm/badges";
 import {
   QuickActionsMenu,
   type QuickAction,
@@ -82,7 +87,11 @@ export function RecordCard({
           <RankBadge rank={record.rank} />
         ) : null}
         <PriorityBadge priority={record.priority} />
-        <OwnerBadge owner={record.owner} />
+        {record.type === "supplier" ? (
+          <TeamProfileBadge profile={record.supplierOwner} />
+        ) : (
+          <OwnerBadge owner={record.owner} />
+        )}
         <span className="ml-auto inline-flex items-center gap-2">
           {record.interactions.length > 0 ? (
             <span

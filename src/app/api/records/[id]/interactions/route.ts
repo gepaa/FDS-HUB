@@ -35,7 +35,7 @@ export async function POST(
       // Real touches keep last_contact honest (CRM Data Model §2).
       ...(isTouch ? { lastContactDate: parsed.data.date } : {}),
     },
-    include: { interactions: true },
+    include: { interactions: true, supplierOwner: true },
   });
   return Response.json(toRecordDTO(updated), { status: 201 });
 }

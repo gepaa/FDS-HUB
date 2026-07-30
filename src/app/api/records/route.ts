@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const type = searchParams.get("type");
   const records = await prisma.crmRecord.findMany({
     where: type === "supplier" || type === "lead" ? { type } : undefined,
-    include: { interactions: true },
+    include: { interactions: true, supplierOwner: true },
     orderBy: { name: "asc" },
   });
   return Response.json(records.map(toRecordDTO));
@@ -35,7 +35,28 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const { tags, productCategories, ...rest } = parsed.data;
+  const {
+    tags,
+    productCategories,
+    supplierContacts,
+    supplierOwnerId,
+    ...rest
+  } = parsed.data;
+  const resolvedSupplierOwnerId =
+    parsed.data.type === "supplier"
+      ? (supplierOwnerId ?? "seat_1")
+      : null;
+  if (resolvedSupplierOwnerId) {
+    const member = await prisma.teamMember.findUnique({
+      where: { id: resolvedSupplierOwnerId },
+    });
+    if (!member?.active) {
+      return Response.json(
+        { error: "Choose an active supplier profile" },
+        { status: 400 },
+      );
+    }
+  }
   const recordId = await nextRecordId(parsed.data.type);
   const created = await prisma.crmRecord.create({
     data: {
@@ -45,8 +66,10 @@ export async function POST(request: Request) {
       // inbound call from this lead matches without anyone having to
       // remember international format.
       phoneE164: normalisedPhoneFor(rest.phone),
+      supplierOwnerId: resolvedSupplierOwnerId,
       tags: JSON.stringify(tags),
       productCategories: JSON.stringify(productCategories),
+      supplierContacts: JSON.stringify(supplierContacts),
       interactions: {
         create: {
           type: "system",
@@ -55,7 +78,7 @@ export async function POST(request: Request) {
         },
       },
     },
-    include: { interactions: true },
+    include: { interactions: true, supplierOwner: true },
   });
   return Response.json(toRecordDTO(created), { status: 201 });
 }

@@ -86,6 +86,7 @@ async function main() {
         email: s.email,
         phone: s.phone,
         status: s.status,
+        supplierOwnerId: "seat_1",
         tags: JSON.stringify([legacyTag(s)]),
         nextAction:
           s.nextAction ??

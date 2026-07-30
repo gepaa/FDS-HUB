@@ -11,7 +11,11 @@ import { DataTable, type Column } from "@/components/kit/DataTable";
 import { GlassPanel } from "@/components/kit/GlassPanel";
 import { Chip } from "@/components/kit/Chip";
 import { Input } from "@/components/kit/Field";
-import { RankBadge, StageBadge } from "@/components/crm/badges";
+import {
+  RankBadge,
+  StageBadge,
+  TeamProfileBadge,
+} from "@/components/crm/badges";
 
 interface ClosedViewProps {
   /** Closed suppliers only (AUTHORIZED / DECLINED). */
@@ -80,6 +84,13 @@ export function ClosedView({ records, onSelect }: ClosedViewProps) {
       header: "Cluster",
       accessor: (r) => <span className="text-xs text-muted">{r.cluster}</span>,
       sortValue: (r) => r.cluster,
+    },
+    {
+      key: "owner",
+      header: "Closed by",
+      accessor: (r) => <TeamProfileBadge profile={r.supplierOwner} />,
+      sortValue: (r) => r.supplierOwner?.name ?? "",
+      width: "120px",
     },
     {
       key: "contact",

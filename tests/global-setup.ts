@@ -17,6 +17,9 @@ export default function setup() {
     const file = dbPath + suffix;
     if (fs.existsSync(file)) fs.rmSync(file);
   }
+  // Prisma 7's SQLite schema engine no longer creates the database file
+  // itself in every environment. An empty file is a valid SQLite target.
+  fs.writeFileSync(dbPath, "");
 
   execSync("npx prisma migrate deploy", {
     cwd: path.resolve(__dirname, ".."),

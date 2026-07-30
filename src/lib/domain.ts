@@ -181,6 +181,26 @@ export type Actor = (typeof ACTORS)[number];
 
 // ---------------- DTOs ----------------
 
+export interface TeamProfileDTO {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  sortOrder: number;
+  active: boolean;
+  discordUserId: string | null;
+}
+
+export interface SupplierContactDTO {
+  id: string;
+  name: string;
+  role: string;
+  phone: string;
+  email: string;
+  notes: string;
+  isPrimary: boolean;
+}
+
 /** Serialized record shape passed to client components (dates as ISO strings). */
 export interface RecordDTO {
   id: string;
@@ -199,6 +219,8 @@ export interface RecordDTO {
   phone: string | null;
   status: StageId;
   owner: Owner;
+  supplierOwnerId: string | null;
+  supplierOwner: TeamProfileDTO | null;
   priority: Priority | null;
   contextSummary: string | null;
   tags: string[];
@@ -213,6 +235,9 @@ export interface RecordDTO {
   dealerProgram: string | null;
   mediaPermission: string | null;
   authorizationStatus: string | null;
+  dealerApplicationSigned: boolean;
+  initialEmailSent: boolean;
+  supplierContacts: SupplierContactDTO[];
   productInterest: string | null;
   intent: string | null;
   quoteAmount: number | null;

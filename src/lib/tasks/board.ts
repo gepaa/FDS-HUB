@@ -25,6 +25,7 @@ export interface SeatDTO {
   color: string;
   sortOrder: number;
   active: boolean;
+  discordUserId: string | null;
 }
 
 export interface AttachmentDTO {

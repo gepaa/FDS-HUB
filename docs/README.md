@@ -13,6 +13,7 @@ This directory is the business's memory (Blueprint §3, Layer 1). **Any Claude s
 7. [FDS_Product_Answer_Desk_SOP.md](FDS_Product_Answer_Desk_SOP.md) — the sales co-pilot: verified store data only, confidence flags, no guessing.
 8. [sops/SOP_Library_Index.md](sops/SOP_Library_Index.md) — the SOP library map (which SOP runs per engine).
 9. [sops/](sops/) — the playbooks themselves, incl. [Hub_Agent_Interface.md](sops/Hub_Agent_Interface.md) (how agents read/write this app).
+10. [supplier-outreach-crm.md](supplier-outreach-crm.md) — the three teammate supplier profiles, contact tracking, and Discord reminders.
 
 ## Reference
 
