@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { resolveActor } from "@/lib/agent-auth";
 import { completeText, extractJson } from "@/lib/agent/complete";
+import { getProvider } from "@/lib/agent/provider";
 import {
   EXPLAIN_SYSTEM,
   renderBrief,
@@ -56,14 +57,37 @@ export async function POST(
     .filter(Boolean)
     .join("\n");
 
-  const raw = await completeText(EXPLAIN_SYSTEM, context).catch(() => null);
-  if (raw === null) {
+  // Three different failures, three different messages. Collapsing them
+  // into one "no model configured" was actively misleading: it sent the
+  // operator to fix an API key that was already set, while the real
+  // error from the provider went in the bin.
+  if (!getProvider()) {
     return Response.json(
       {
         error:
-          "No model is configured for this hub, so there's nothing to write the brief. Set ANTHROPIC_API_KEY and try again.",
+          "No model is configured for this hub. Set AI_PROVIDER + AI_API_KEY (or ANTHROPIC_API_KEY) and try again.",
       },
       { status: 503 },
+    );
+  }
+
+  let raw: string | null;
+  try {
+    raw = await completeText(EXPLAIN_SYSTEM, context);
+  } catch (e) {
+    return Response.json(
+      {
+        error: `The model call failed: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      },
+      { status: 502 },
+    );
+  }
+  if (!raw) {
+    return Response.json(
+      { error: "The model returned an empty reply." },
+      { status: 502 },
     );
   }
 
