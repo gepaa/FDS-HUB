@@ -41,6 +41,8 @@ interface SupplierOutreachDetailProps {
   initialRecord: RecordDTO | null;
   profiles: TeamProfileDTO[];
   clusterOptions: string[];
+  backHref?: string;
+  backLabel?: string;
 }
 
 interface SupplierForm {
@@ -206,6 +208,8 @@ export function SupplierOutreachDetail({
   initialRecord,
   profiles,
   clusterOptions,
+  backHref = "/supplier-outreach",
+  backLabel = "Supplier Outreach",
 }: SupplierOutreachDetailProps) {
   const creating = initialRecord === null;
   const router = useRouter();
@@ -406,11 +410,11 @@ export function SupplierOutreachDetail({
   return (
     <div className="flex flex-col gap-5">
       <Link
-        href="/supplier-outreach"
+        href={backHref}
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-muted hover:text-ink"
       >
         <ArrowLeft size={15} aria-hidden />
-        Supplier Outreach
+        {backLabel}
       </Link>
 
       <header className="surface-raised sticky top-16 z-20 flex flex-col gap-4 rounded-panel px-5 py-4 shadow-sm md:flex-row md:items-center md:justify-between">
@@ -1165,10 +1169,10 @@ export function SupplierOutreachDetail({
 
       <div className="flex items-center justify-end gap-2 pb-6">
         <Link
-          href="/supplier-outreach"
+          href={backHref}
           className="press inline-flex h-10 items-center justify-center rounded-control border border-hairline bg-[var(--panel)] px-4 text-sm font-medium text-ink shadow-sm"
         >
-          Back to list
+          Back to {backLabel.toLowerCase()}
         </Link>
         <Button
           variant="primary"
