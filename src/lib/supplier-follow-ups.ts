@@ -198,7 +198,7 @@ function hubRecordUrl(recordId: string): string {
     process.env.VERCEL_URL ??
     "localhost:3000";
   const protocol = host.startsWith("localhost") ? "http" : "https";
-  return `${protocol}://${host}/crm?record=${encodeURIComponent(recordId)}`;
+  return `${protocol}://${host}/supplier-outreach/${encodeURIComponent(recordId)}`;
 }
 
 export async function checkSupplierFollowUps(now = new Date()) {

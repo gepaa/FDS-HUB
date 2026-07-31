@@ -6,12 +6,7 @@ import { SupplierOutreachWorkspace } from "@/components/supplier-outreach/Suppli
 export const metadata: Metadata = { title: "Supplier Outreach" };
 export const dynamic = "force-dynamic";
 
-export default async function SupplierOutreachPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ record?: string; new?: string }>;
-}) {
-  const sp = await searchParams;
+export default async function SupplierOutreachPage() {
   const [suppliers, profiles] = await Promise.all([
     prisma.crmRecord.findMany({
       where: { type: "supplier" },
@@ -28,8 +23,6 @@ export default async function SupplierOutreachPage({
     <SupplierOutreachWorkspace
       initial={suppliers.map(toRecordDTO)}
       profiles={profiles.map(toTeamProfileDTO)}
-      initialRecordId={sp.record}
-      initialCreate={sp.new === "1"}
     />
   );
 }
