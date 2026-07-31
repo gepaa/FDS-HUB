@@ -81,7 +81,7 @@ export const quoDialer: CommunicationDialer = {
         href: null,
         providerHref,
         instruction:
-          "No usable telephone number on this lead — add one before calling.",
+          "No usable telephone number on this record — add one before calling.",
         display: "",
       };
     }
@@ -92,7 +92,7 @@ export const quoDialer: CommunicationDialer = {
       providerHref,
       instruction:
         "Opens Quo and dials the number. Keep this window open — the call " +
-        "is written up here automatically when it ends.",
+        "history is synced to this record automatically when it ends.",
       display,
     };
   },

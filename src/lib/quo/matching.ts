@@ -5,12 +5,13 @@ import { nextRecordId } from "@/lib/record-id";
 import type { CrmRecord } from "@/generated/prisma/client";
 
 /**
- * Deciding which lead a call belongs to.
+ * Deciding which CRM record a call belongs to.
  *
  * Order (§7), strictest first:
  *   1. exact normalised E.164 match on an existing record
- *   2. an existing CRM ⇄ Quo contact mapping
- *   3. create a minimal lead (inbound only)
+ *   2. exact E.164 match on a supplier contact's direct line
+ *   3. an existing CRM ⇄ Quo contact mapping
+ *   4. create a minimal lead (inbound only)
  *
  * There is deliberately no "last N digits" fallback. On this CRM a bad
  * match doesn't just misfile an activity — it shows one customer's
@@ -22,6 +23,7 @@ import type { CrmRecord } from "@/generated/prisma/client";
 
 export type MatchMethod =
   | "e164"
+  | "supplier_contact"
   | "contact_link"
   | "created"
   | "unmatched";
@@ -55,9 +57,37 @@ export async function matchLead(input: MatchInput): Promise<MatchResult> {
       orderBy: { createdAt: "asc" },
     });
     if (byPhone) return { record: byPhone, method: "e164", created: false };
+
+    // Supplier outreach often starts on a switchboard and moves to a
+    // sales representative's direct line. Those people live inside the
+    // supplierContacts JSON array, so they cannot use the indexed
+    // phoneE164 fast path above. Compare only fully normalised numbers;
+    // the same strict no-fuzzy-matching rule still applies.
+    const suppliers = await prisma.crmRecord.findMany({
+      where: {
+        type: "supplier",
+        supplierContacts: { not: "[]" },
+      },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, supplierContacts: true },
+    });
+    for (const supplier of suppliers) {
+      const contacts = supplierContactPhones(supplier.supplierContacts);
+      if (contacts.some((phone) => toE164(phone, region) === e164)) {
+        const record = await prisma.crmRecord.findUnique({
+          where: { id: supplier.id },
+        });
+        if (!record) continue;
+        return {
+          record,
+          method: "supplier_contact",
+          created: false,
+        };
+      }
+    }
   }
 
-  // 2. A contact we have previously synced to Quo.
+  // 3. A contact we have previously synced to Quo.
   const contactIds = (input.quoContactIds ?? []).filter(Boolean);
   if (contactIds.length > 0) {
     const link = await prisma.quoContactLink.findFirst({
@@ -76,7 +106,7 @@ export async function matchLead(input: MatchInput): Promise<MatchResult> {
     }
   }
 
-  // 3. Inbound calls from a stranger become a lead. Outbound calls do
+  // 4. Inbound calls from a stranger become a lead. Outbound calls do
   //    not: if we rang a number that isn't in the CRM, that is worth a
   //    human's attention, not an auto-created record.
   if (input.direction === "incoming" && e164) {
@@ -85,6 +115,22 @@ export async function matchLead(input: MatchInput): Promise<MatchResult> {
   }
 
   return { record: null, method: "unmatched", created: false };
+}
+
+function supplierContactPhones(raw: string): string[] {
+  try {
+    const contacts = JSON.parse(raw) as unknown;
+    if (!Array.isArray(contacts)) return [];
+    return contacts.flatMap((contact) => {
+      if (!contact || typeof contact !== "object") return [];
+      const phone = (contact as { phone?: unknown }).phone;
+      return typeof phone === "string" && phone.trim() ? [phone] : [];
+    });
+  } catch {
+    // A malformed legacy JSON value must never prevent the webhook from
+    // matching other records or acknowledging Quo's delivery.
+    return [];
+  }
 }
 
 /**

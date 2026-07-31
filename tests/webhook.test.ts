@@ -214,6 +214,42 @@ describe("existing lead", () => {
   });
 });
 
+describe("existing supplier", () => {
+  it("attaches a direct-contact call to the supplier", async () => {
+    const supplier = await prisma.crmRecord.create({
+      data: {
+        recordId: "FDS-SUP-0900",
+        type: "supplier",
+        name: "Blue Valley Equipment",
+        supplierContacts: JSON.stringify([
+          {
+            id: "contact-mark",
+            name: "Mark",
+            role: "Sales representative",
+            phone: "(415) 555-0123",
+            email: "mark@example.com",
+            notes: "",
+            isPrimary: true,
+          },
+        ]),
+        status: "IN_CONVERSATION",
+      },
+    });
+
+    const { request } = buildDelivery({
+      eventType: "call.ringing",
+      callId: "ACsuppliercontact",
+      externalNumber: "+14155550123",
+    });
+    await POST(request);
+    await flushAfter();
+
+    const activity = await prisma.commsActivity.findFirst();
+    expect(activity?.recordId).toBe(supplier.id);
+    expect(await prisma.crmRecord.count()).toBe(1);
+  });
+});
+
 describe("duplicate delivery", () => {
   it("is a no-op when Quo retries the same event", async () => {
     const delivery = buildDelivery({

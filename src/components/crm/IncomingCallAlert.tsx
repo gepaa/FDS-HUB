@@ -34,6 +34,7 @@ interface IncomingCall {
   known: boolean;
   record: {
     id: string;
+    type: string;
     name: string;
     company: string | null;
     stage: string;
@@ -228,9 +229,16 @@ export function IncomingCallAlert() {
 
               <div className="mt-2 flex items-center gap-2">
                 {call.record ? (
-                  <Link href={`/crm?record=${call.record.id}`}>
+                  <Link
+                    href={
+                      call.record.type === "supplier"
+                        ? `/supplier-outreach/${call.record.id}`
+                        : `/crm?record=${call.record.id}`
+                    }
+                  >
                     <Button size="sm" variant="primary">
-                      Open lead
+                      Open{" "}
+                      {call.record.type === "supplier" ? "supplier" : "lead"}
                     </Button>
                   </Link>
                 ) : null}
