@@ -17,6 +17,7 @@ import {
   Inbox,
   type LucideIcon,
   KeyRound,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export interface NavItem {
@@ -55,6 +56,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
     section: "hq",
     description: "Team supplier outreach, follow-ups, and the shared closed book.",
+  },
+  {
+    href: "/supplier-outreach",
+    label: "Supplier Outreach",
+    icon: FileSpreadsheet,
+    section: "hq",
+    description: "Spreadsheet-style supplier calling lists for Ben, Bennett, and Pablo.",
   },
   {
     href: "/passwords",
