@@ -31,17 +31,34 @@ import type { CallSummaryDTO, CallDetailDTO } from "@/lib/quo/dto";
 
 interface Props {
   recordId: string;
+  subject?: "lead" | "supplier" | "record";
   /** Refetch trigger — bump to reload after an external change. */
   refreshKey?: number;
 }
 
-export function CallTimeline({ recordId, refreshKey = 0 }: Props) {
+export function CallTimeline({
+  recordId,
+  subject = "record",
+  refreshKey = 0,
+}: Props) {
   // Keyed so switching lead (or forcing a refresh) remounts and resets
   // state naturally, instead of clearing it from inside an effect.
-  return <CallList key={`${recordId}:${refreshKey}`} recordId={recordId} />;
+  return (
+    <CallList
+      key={`${recordId}:${refreshKey}`}
+      recordId={recordId}
+      subject={subject}
+    />
+  );
 }
 
-function CallList({ recordId }: { recordId: string }) {
+function CallList({
+  recordId,
+  subject,
+}: {
+  recordId: string;
+  subject: NonNullable<Props["subject"]>;
+}) {
   const [calls, setCalls] = useState<CallSummaryDTO[] | null>(null);
   const [disabled, setDisabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +106,7 @@ function CallList({ recordId }: { recordId: string }) {
         <Link href="/integrations/quo" className="underline hover:text-ink">
           Connect Quo
         </Link>{" "}
-        and every call with this lead lands here automatically.
+        and every call with this {subject} lands here automatically.
       </p>
     );
   }
@@ -97,7 +114,8 @@ function CallList({ recordId }: { recordId: string }) {
   if (calls.length === 0) {
     return (
       <p className="text-sm text-muted">
-        No calls yet. Every call with this lead will appear here automatically.
+        No calls yet. Every call with this {subject} will appear here
+        automatically.
       </p>
     );
   }

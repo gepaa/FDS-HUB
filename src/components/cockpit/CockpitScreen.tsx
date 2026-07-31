@@ -35,6 +35,7 @@ import {
   type NoteKind,
 } from "@/lib/cockpit";
 import { DealBoard } from "@/components/cockpit/DealBoard";
+import { DialButton } from "@/components/crm/DialButton";
 
 // ---------------- DTOs from the server page ----------------
 
@@ -345,6 +346,11 @@ export function CockpitScreen({
             </p>
           </div>
           <span className="flex-1" />
+          <DialButton
+            phone={record.phone}
+            label="Call in Quo"
+            size="md"
+          />
           <div className="flex items-center gap-2 rounded-card border border-hairline bg-[var(--panel-soft)] px-3 py-1.5">
             <Phone size={14} className="text-green" aria-hidden />
             <span className="num text-lg font-semibold text-ink tabular-nums">
@@ -356,7 +362,11 @@ export function CockpitScreen({
             End call
           </Button>
           <Link
-            href="/crm"
+            href={
+              record.type === "supplier"
+                ? `/supplier-outreach/${record.id}`
+                : "/crm"
+            }
             className="press rounded-control border border-hairline p-2 text-muted hover:text-ink"
             aria-label="Exit cockpit"
           >
@@ -437,7 +447,9 @@ export function CockpitScreen({
           {/* ======== LEFT: who + history ======== */}
           <div className="flex flex-col gap-3">
             <section className="surface rounded-panel p-3.5">
-              <SectionTitle>Customer</SectionTitle>
+              <SectionTitle>
+                {record.type === "supplier" ? "Supplier" : "Customer"}
+              </SectionTitle>
               <div className="mt-2 flex flex-col gap-2 text-sm">
                 <Input
                   value={data.location}

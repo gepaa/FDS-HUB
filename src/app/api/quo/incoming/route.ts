@@ -69,6 +69,7 @@ export async function GET(request: Request) {
       record: {
         select: {
           id: true,
+          type: true,
           name: true,
           company: true,
           status: true,
@@ -78,6 +79,9 @@ export async function GET(request: Request) {
           nextActionDate: true,
           lastContactDate: true,
           needsEnrichment: true,
+          supplierOwner: {
+            select: { name: true },
+          },
         },
       },
     },
@@ -120,10 +124,11 @@ export async function GET(request: Request) {
         record: record
           ? {
               id: record.id,
+              type: record.type,
               name: record.name,
               company: record.company,
               stage: record.status,
-              owner: record.owner,
+              owner: record.supplierOwner?.name ?? record.owner,
               productInterest: record.productInterest,
               needsEnrichment: record.needsEnrichment,
             }

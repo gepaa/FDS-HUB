@@ -441,9 +441,13 @@ export function SupplierOutreachDetail({
                 className="press inline-flex h-10 items-center justify-center gap-2 rounded-control border border-hairline bg-[var(--panel)] px-4 text-sm font-medium text-ink shadow-sm hover:border-[var(--hairline-strong)]"
               >
                 <PhoneCall size={15} aria-hidden />
-                Start call
+                Open call workspace
               </Link>
-              <DialButton phone={record.phone} />
+              <DialButton
+                phone={record.phone}
+                label="Call in Quo"
+                size="md"
+              />
             </>
           ) : null}
           <Button
@@ -756,15 +760,18 @@ export function SupplierOutreachDetail({
                   </Field>
                   <Field label="Direct phone">
                     {(id) => (
-                      <Input
-                        id={id}
-                        value={contact.phone}
-                        onChange={(event) =>
-                          updateContact(contact.id, {
-                            phone: event.target.value,
-                          })
-                        }
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id={id}
+                          value={contact.phone}
+                          onChange={(event) =>
+                            updateContact(contact.id, {
+                              phone: event.target.value,
+                            })
+                          }
+                        />
+                        <DialButton phone={contact.phone} label="Call" />
+                      </div>
                     )}
                   </Field>
                   <Field label="Direct email">
@@ -1049,8 +1056,11 @@ export function SupplierOutreachDetail({
           </SectionCard>
 
           {!creating && record ? (
-            <SectionCard title="Calls">
-              <CallTimeline recordId={record.id} />
+            <SectionCard
+              title="Quo calls"
+              description="Calls to the main line or a saved contact's direct line sync here automatically."
+            >
+              <CallTimeline recordId={record.id} subject="supplier" />
             </SectionCard>
           ) : null}
         </div>

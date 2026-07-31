@@ -20,10 +20,14 @@ export function DialButton({
   phone,
   providerLink,
   region = "US",
+  label = "Dial",
+  size = "sm",
 }: {
   phone: string | null | undefined;
   providerLink?: string | null;
   region?: string;
+  label?: string;
+  size?: "sm" | "md";
 }) {
   const [explained, setExplained] = useState(false);
   const dial = getDialer().initiateCall({ phone, providerLink, region });
@@ -31,7 +35,9 @@ export function DialButton({
   if (dial.mode === "unsupported" || !dial.href) {
     return (
       <span
-        className="inline-flex h-8 items-center gap-1.5 rounded-control border border-hairline px-3 text-[13px] text-muted"
+        className={`inline-flex items-center gap-1.5 rounded-control border border-hairline px-3 text-[13px] text-muted ${
+          size === "md" ? "h-10" : "h-8"
+        }`}
         title={dial.instruction}
       >
         <PhoneOutgoing size={13} aria-hidden />
@@ -47,11 +53,13 @@ export function DialButton({
         onClick={() => setExplained(true)}
         // whitespace-nowrap: the label must never wrap onto a second
         // line and push the footer's height around.
-        className="press inline-flex h-8 shrink-0 items-center gap-1.5 rounded-control border border-hairline bg-[var(--panel)] px-3 text-[13px] font-medium whitespace-nowrap text-ink shadow-sm hover:border-[var(--hairline-strong)]"
+        className={`press inline-flex shrink-0 items-center gap-1.5 rounded-control border border-hairline bg-[var(--panel)] px-3 text-[13px] font-medium whitespace-nowrap text-ink shadow-sm hover:border-[var(--hairline-strong)] ${
+          size === "md" ? "h-10" : "h-8"
+        }`}
         title={`${dial.display} — ${dial.instruction}`}
       >
         <PhoneOutgoing size={13} aria-hidden />
-        Dial
+        {label}
         <span className="sr-only"> {dial.display}</span>
       </a>
       {explained ? (

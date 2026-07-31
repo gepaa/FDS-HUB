@@ -50,6 +50,57 @@ describe("matchLead", () => {
     expect(result.created).toBe(false);
   });
 
+  it("matches a supplier contact's direct line", async () => {
+    const supplier = await prisma.crmRecord.create({
+      data: {
+        recordId: "FDS-SUP-0002",
+        type: "supplier",
+        name: "Blue Valley Equipment",
+        phoneE164: "+14155550100",
+        supplierContacts: JSON.stringify([
+          {
+            id: "contact-mark",
+            name: "Mark",
+            role: "Sales representative",
+            phone: "(415) 555-0199",
+            email: "mark@example.com",
+            notes: "",
+            isPrimary: true,
+          },
+        ]),
+        status: "IN_CONVERSATION",
+      },
+    });
+
+    const result = await matchLead({
+      externalNumber: "+14155550199",
+      direction: "outgoing",
+    });
+
+    expect(result.method).toBe("supplier_contact");
+    expect(result.record?.id).toBe(supplier.id);
+    expect(result.created).toBe(false);
+  });
+
+  it("ignores malformed supplier contact data while matching", async () => {
+    await prisma.crmRecord.create({
+      data: {
+        recordId: "FDS-SUP-0003",
+        type: "supplier",
+        name: "Legacy Supplier",
+        supplierContacts: "{not-json",
+        status: "SOURCED",
+      },
+    });
+
+    const result = await matchLead({
+      externalNumber: "+14155550199",
+      direction: "outgoing",
+    });
+
+    expect(result.method).toBe("unmatched");
+  });
+
   it("falls back to an existing Quo contact mapping", async () => {
     const lead = await prisma.crmRecord.create({
       data: {
