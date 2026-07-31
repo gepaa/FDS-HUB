@@ -4,41 +4,33 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   Archive,
-  ArrowRight,
   BellRing,
   FileSpreadsheet,
   Plus,
   Search,
   Users,
+  XCircle,
 } from "lucide-react";
 import {
+  APPROVED_SUPPLIER_STAGE_SET,
   CLOSED_SUPPLIER_STAGE_SET,
   needsFollowUp,
+  REJECTED_SUPPLIER_STAGE_SET,
   SUPPLIER_STAGES,
   type RecordDTO,
   type TeamProfileDTO,
 } from "@/lib/domain";
 import { cn } from "@/lib/utils";
-import { StageBadge } from "@/components/crm/badges";
+import { SupplierCloseGoal } from "@/components/supplier-outreach/SupplierCloseGoal";
+import { SupplierList } from "@/components/supplier-outreach/SupplierList";
 
 interface SupplierOutreachWorkspaceProps {
   initial: RecordDTO[];
   profiles: TeamProfileDTO[];
 }
 
-type Scope = "profile" | "closed";
-
 const controlClass =
   "h-10 rounded-control border border-hairline bg-[var(--panel)] px-3 text-[13px] text-ink outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]";
-
-function displayWebsite(value: string | null) {
-  if (!value) return "—";
-  try {
-    return new URL(value).hostname.replace(/^www\./, "");
-  } catch {
-    return value.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
-  }
-}
 
 export function SupplierOutreachWorkspace({
   initial,
@@ -47,19 +39,24 @@ export function SupplierOutreachWorkspace({
   const [activeProfileId, setActiveProfileId] = useState(
     profiles[0]?.id ?? "seat_1",
   );
-  const [scope, setScope] = useState<Scope>("profile");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [followUpOnly, setFollowUpOnly] = useState(false);
 
-  const closed = useMemo(
+  const approved = useMemo(
     () =>
       initial.filter((record) =>
-        CLOSED_SUPPLIER_STAGE_SET.has(record.status),
+        APPROVED_SUPPLIER_STAGE_SET.has(record.status),
       ),
     [initial],
   );
-
+  const rejectedCount = useMemo(
+    () =>
+      initial.filter((record) =>
+        REJECTED_SUPPLIER_STAGE_SET.has(record.status),
+      ).length,
+    [initial],
+  );
   const profileRecords = useMemo(
     () =>
       initial.filter(
@@ -70,10 +67,9 @@ export function SupplierOutreachWorkspace({
     [activeProfileId, initial],
   );
 
-  const scoped = scope === "closed" ? closed : profileRecords;
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return scoped.filter((record) => {
+    return profileRecords.filter((record) => {
       if (
         query &&
         ![record.name, record.phone, record.websiteUrl]
@@ -86,9 +82,9 @@ export function SupplierOutreachWorkspace({
       if (followUpOnly && !needsFollowUp(record)) return false;
       return true;
     });
-  }, [followUpOnly, scoped, search, status]);
+  }, [followUpOnly, profileRecords, search, status]);
 
-  const dueCount = scoped.filter(needsFollowUp).length;
+  const dueCount = profileRecords.filter(needsFollowUp).length;
   const clearFilters = () => {
     setSearch("");
     setStatus("");
@@ -107,8 +103,8 @@ export function SupplierOutreachWorkspace({
             Supplier Outreach
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Choose a profile, scan the essentials, then open a supplier to work
-            the full record.
+            Active outreach only. Approved and rejected suppliers are kept in
+            separate books.
           </p>
         </div>
         <Link
@@ -120,6 +116,8 @@ export function SupplierOutreachWorkspace({
         </Link>
       </header>
 
+      <SupplierCloseGoal authorizedCount={approved.length} />
+
       <section className="surface-raised overflow-hidden rounded-panel">
         <div className="flex flex-wrap items-center gap-2 border-b border-hairline p-3">
           {profiles.map((profile) => {
@@ -128,15 +126,13 @@ export function SupplierOutreachWorkspace({
                 record.supplierOwnerId === profile.id &&
                 !CLOSED_SUPPLIER_STAGE_SET.has(record.status),
             ).length;
-            const active =
-              scope === "profile" && activeProfileId === profile.id;
+            const active = activeProfileId === profile.id;
             return (
               <button
                 key={profile.id}
                 type="button"
                 onClick={() => {
                   setActiveProfileId(profile.id);
-                  setScope("profile");
                   setStatus("");
                 }}
                 className={cn(
@@ -157,28 +153,31 @@ export function SupplierOutreachWorkspace({
               </button>
             );
           })}
+
           <div className="mx-1 hidden h-6 w-px bg-[var(--hairline)] sm:block" />
-          <button
-            type="button"
-            onClick={() => {
-              setScope("closed");
-              setStatus("");
-            }}
-            className={cn(
-              "press flex h-10 items-center gap-2 rounded-control border px-3 text-sm font-medium transition",
-              scope === "closed"
-                ? "border-[var(--green)] bg-[var(--green-soft)] text-ink"
-                : "border-hairline bg-[var(--panel)] text-muted hover:text-ink",
-            )}
+
+          <Link
+            href="/supplier-outreach/closed"
+            className="press flex h-10 items-center gap-2 rounded-control border border-hairline bg-[var(--panel)] px-3 text-sm font-medium text-muted transition hover:border-[var(--green)] hover:text-ink"
           >
             <Archive size={15} aria-hidden />
-            Closed
-            <span className="num text-[11px] text-muted">{closed.length}</span>
-          </button>
+            Approved / Closed
+            <span className="num text-[11px] text-muted">{approved.length}</span>
+          </Link>
+
+          <Link
+            href="/supplier-outreach/rejected"
+            className="press flex h-10 items-center gap-2 rounded-control border border-hairline px-3 text-sm font-medium text-muted transition hover:text-ink"
+          >
+            <XCircle size={15} aria-hidden />
+            Rejected
+            <span className="num text-[11px] text-muted">{rejectedCount}</span>
+          </Link>
+
           <div className="ml-auto hidden items-center gap-3 text-xs text-muted md:flex">
             <span className="flex items-center gap-1.5">
               <Users size={14} aria-hidden />
-              {scoped.length} suppliers
+              {profileRecords.length} suppliers
             </span>
             <span
               className={cn(
@@ -212,11 +211,9 @@ export function SupplierOutreachWorkspace({
             className={cn(controlClass, "sm:w-44")}
             aria-label="Filter by status"
           >
-            <option value="">All statuses</option>
-            {SUPPLIER_STAGES.filter((stage) =>
-              scope === "closed"
-                ? CLOSED_SUPPLIER_STAGE_SET.has(stage.id)
-                : !CLOSED_SUPPLIER_STAGE_SET.has(stage.id),
+            <option value="">All active statuses</option>
+            {SUPPLIER_STAGES.filter(
+              (stage) => !CLOSED_SUPPLIER_STAGE_SET.has(stage.id),
             ).map((stage) => (
               <option key={stage.id} value={stage.id}>
                 {stage.label}
@@ -236,7 +233,7 @@ export function SupplierOutreachWorkspace({
             <BellRing size={14} aria-hidden />
             Due only
           </button>
-          {(search || status || followUpOnly) && (
+          {search || status || followUpOnly ? (
             <button
               type="button"
               onClick={clearFilters}
@@ -244,73 +241,10 @@ export function SupplierOutreachWorkspace({
             >
               Clear
             </button>
-          )}
+          ) : null}
         </div>
 
-        <div className="hidden grid-cols-[minmax(0,2fr)_160px_180px_minmax(150px,1fr)_32px] items-center border-b border-hairline bg-[var(--panel)] px-4 py-2 text-[10px] font-semibold tracking-[0.12em] text-muted uppercase lg:grid">
-          <span>Name</span>
-          <span>Status</span>
-          <span>Phone number</span>
-          <span>Website</span>
-          <span className="sr-only">Open</span>
-        </div>
-
-        <div>
-          {filtered.map((record) => (
-            <Link
-              key={record.id}
-              href={`/supplier-outreach/${record.id}`}
-              prefetch={false}
-              className="group grid gap-3 border-b border-hairline bg-[var(--panel)] px-4 py-4 transition last:border-b-0 hover:bg-[var(--accent-soft)] focus-visible:bg-[var(--accent-soft)] focus-visible:outline-none sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_160px_180px_minmax(150px,1fr)_32px] lg:items-center lg:gap-0 lg:py-3"
-            >
-              <div className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-ink">
-                  {record.name}
-                </span>
-              </div>
-              <div>
-                <span className="mb-1 block text-[10px] font-semibold tracking-wide text-muted uppercase lg:hidden">
-                  Status
-                </span>
-                <StageBadge stage={record.status} />
-              </div>
-              <div className="min-w-0">
-                <span className="mb-1 block text-[10px] font-semibold tracking-wide text-muted uppercase lg:hidden">
-                  Phone number
-                </span>
-                <span className="block truncate font-mono text-xs text-ink">
-                  {record.phone || "—"}
-                </span>
-              </div>
-              <div className="min-w-0">
-                <span className="mb-1 block text-[10px] font-semibold tracking-wide text-muted uppercase lg:hidden">
-                  Website
-                </span>
-                <span className="block truncate text-xs text-muted">
-                  {displayWebsite(record.websiteUrl)}
-                </span>
-              </div>
-              <ArrowRight
-                size={16}
-                className="hidden text-muted transition group-hover:translate-x-0.5 group-hover:text-[var(--accent-bright)] lg:block"
-                aria-hidden
-              />
-            </Link>
-          ))}
-
-          {filtered.length === 0 && (
-            <div className="flex min-h-40 items-center justify-center px-4 text-center text-sm text-muted">
-              No suppliers match this view.
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-3 border-t border-hairline bg-[var(--panel-soft)] px-4 py-3 text-[11px] text-muted">
-          <span>
-            {filtered.length} of {scoped.length} suppliers
-          </span>
-          <span>Open a supplier to see and edit everything else.</span>
-        </div>
+        <SupplierList records={filtered} total={profileRecords.length} />
       </section>
     </div>
   );

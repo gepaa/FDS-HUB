@@ -80,10 +80,16 @@ export const TERMINAL_STAGES = new Set<string>([
 
 // ---------------- Closed suppliers ----------------
 
+/** Approved suppliers are the only records that count as a successful close. */
+export const APPROVED_SUPPLIER_STAGE_SET = new Set<string>(["AUTHORIZED"]);
+
+/** Rejections stay archived away from both the active and approved books. */
+export const REJECTED_SUPPLIER_STAGE_SET = new Set<string>(["DECLINED"]);
+
 /** Supplier stages where the deal is decided — the closed book. */
 export const CLOSED_SUPPLIER_STAGE_SET = new Set<string>([
-  "AUTHORIZED",
-  "DECLINED",
+  ...APPROVED_SUPPLIER_STAGE_SET,
+  ...REJECTED_SUPPLIER_STAGE_SET,
 ]);
 
 /** Decided suppliers (won + lost), in ladder order. */
@@ -101,6 +107,41 @@ export function isClosedSupplier(r: {
   status: string;
 }): boolean {
   return r.type === "supplier" && CLOSED_SUPPLIER_STAGE_SET.has(r.status);
+}
+
+/**
+ * Supplier growth goal set on 2026-07-30.
+ *
+ * The baseline is fixed rather than recalculated, otherwise every new
+ * approval would move the target and progress would stay at zero.
+ */
+export const SUPPLIER_CLOSE_GOAL = {
+  startedOn: "2026-07-30",
+  baselineAuthorized: 7,
+  additionalTarget: 20,
+  targetAuthorized: 27,
+} as const;
+
+export function supplierCloseGoalProgress(authorizedCount: number) {
+  const gained = Math.max(
+    0,
+    authorizedCount - SUPPLIER_CLOSE_GOAL.baselineAuthorized,
+  );
+  const completed = Math.min(gained, SUPPLIER_CLOSE_GOAL.additionalTarget);
+  return {
+    completed,
+    remaining: Math.max(
+      0,
+      SUPPLIER_CLOSE_GOAL.additionalTarget - completed,
+    ),
+    percent: Math.min(
+      100,
+      Math.round(
+        (completed / SUPPLIER_CLOSE_GOAL.additionalTarget) * 100,
+      ),
+    ),
+    reached: gained >= SUPPLIER_CLOSE_GOAL.additionalTarget,
+  };
 }
 
 /** CSV status text → supplier stage id (import mapping; includes the
