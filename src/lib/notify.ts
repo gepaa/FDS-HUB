@@ -24,6 +24,14 @@ export interface NotifyInput {
    * routine messages so the channel doesn't get muted.
    */
   mentionEveryone?: boolean;
+  /**
+   * Send to a specific Discord channel instead of the default one.
+   * Falls back to DISCORD_WEBHOOK_URL when unset, so callers that don't
+   * care keep working unchanged. Reminders pass
+   * DISCORD_REMINDERS_WEBHOOK_URL here so they land in #reminders rather
+   * than mixing into the budget-alerts channel.
+   */
+  webhookUrl?: string;
 }
 
 export interface NotifyResult {
@@ -44,6 +52,21 @@ export function notifyChannelReady(): boolean {
 }
 
 /**
+ * The webhook reminders post to: the dedicated #reminders channel when
+ * configured, otherwise the default one. Returned as `undefined` (not
+ * "") so `input.webhookUrl || env.DISCORD_WEBHOOK_URL` falls through
+ * cleanly.
+ */
+export function reminderWebhookUrl(): string | undefined {
+  return env.DISCORD_REMINDERS_WEBHOOK_URL || undefined;
+}
+
+/** True when reminders have their own channel (vs sharing the default). */
+export function reminderChannelDedicated(): boolean {
+  return Boolean(env.DISCORD_REMINDERS_WEBHOOK_URL);
+}
+
+/**
  * Send a notification through the configured channel. Never throws —
  * returns a result the caller can log. When nothing is wired it
  * resolves `{ delivered: false, channel: "none" }` so the rest of the
@@ -51,7 +74,7 @@ export function notifyChannelReady(): boolean {
  */
 export async function notify(input: NotifyInput): Promise<NotifyResult> {
   const severity = input.severity ?? "info";
-  const webhook = env.DISCORD_WEBHOOK_URL;
+  const webhook = input.webhookUrl || env.DISCORD_WEBHOOK_URL;
   if (!webhook) return { delivered: false, channel: "none" };
 
   const emoji = severity === "critical" ? "🔴" : severity === "warn" ? "🟠" : "🔵";

@@ -70,21 +70,21 @@ model CrmRecord {
   linkedShopifyId String? // Shopify customer/order ID
 
   // Supplier-only (§4, MVP subset)
-  supplierOwnerId        String?
-  supplierOwner          TeamMember? @relation(fields: [supplierOwnerId], references: [id], onDelete: SetNull)
-  dealerApplicationSigned Boolean @default(false)
-  initialEmailSent       Boolean @default(false)
-  supplierContacts       String  @default("[]") // JSON array of contact people
+  supplierOwnerId         String?
+  supplierOwner           TeamMember? @relation(fields: [supplierOwnerId], references: [id], onDelete: SetNull)
+  dealerApplicationSigned Boolean     @default(false)
+  initialEmailSent        Boolean     @default(false)
+  supplierContacts        String      @default("[]") // JSON array of contact people
   followUpReminderSentFor DateTime? // exact nextActionDate already pushed to Discord
-  mapPolicy           String?
-  dropship            Boolean?
-  freightModel        String?
-  leadTime            String?
-  warranty            String?
-  productCategories   String  @default("[]") // JSON array; maps to Collection Map
-  dealerProgram       String? // dropship | stocking | none | unknown
-  mediaPermission     String? // granted | requested | none
-  authorizationStatus String? // none | pending | authorized
+  mapPolicy               String?
+  dropship                Boolean?
+  freightModel            String?
+  leadTime                String?
+  warranty                String?
+  productCategories       String      @default("[]") // JSON array; maps to Collection Map
+  dealerProgram           String? // dropship | stocking | none | unknown
+  mediaPermission         String? // granted | requested | none
+  authorizationStatus     String? // none | pending | authorized
 
   // Lead-only (§5, MVP subset)
   productInterest String?
@@ -209,15 +209,15 @@ model HqTask {
 // Three human seats, stored as rows so renaming a teammate is a UI edit
 // rather than a migration. Seats are deactivated, never deleted.
 model TeamMember {
-  id        String   @id
-  name      String
-  initials  String
-  color     String   @default("#8AB4F8")
-  sortOrder Int      @default(0)
-  active    Boolean  @default(true)
+  id            String   @id
+  name          String
+  initials      String
+  color         String   @default("#8AB4F8")
+  sortOrder     Int      @default(0)
+  active        Boolean  @default(true)
   discordUserId String? // numeric Discord user id for reminder mentions
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   tasks           HqTask[]
   supplierRecords CrmRecord[]
@@ -336,16 +336,16 @@ model Clutch {
 // Keeps ad-account balances accountable so the card never declines.
 // See prisma/schema.prisma for the full model notes (kept identical).
 model AdAccount {
-  id           String  @id @default(cuid())
-  name         String
-  platform     String  @default("Google Ads")
-  externalId   String?
-  currency     String  @default("USD")
-  balance      Float   @default(0)
-  dailyBudget  Float   @default(0)
-  thresholdDays Int    @default(3)
-  active       Boolean @default(true)
-  notes        String?
+  id            String  @id @default(cuid())
+  name          String
+  platform      String  @default("Google Ads")
+  externalId    String?
+  currency      String  @default("USD")
+  balance       Float   @default(0)
+  dailyBudget   Float   @default(0)
+  thresholdDays Int     @default(3)
+  active        Boolean @default(true)
+  notes         String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -565,8 +565,8 @@ model CallArtifact {
   activityId String
   activity   CommsActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
-  kind         String // recording | transcript | summary | voicemail
-  segmentIndex Int    @default(0)
+  kind               String // recording | transcript | summary | voicemail
+  segmentIndex       Int     @default(0)
   // Quo's own id for this artifact (`CR…` for recordings) when supplied.
   providerArtifactId String?
 
@@ -589,8 +589,8 @@ model CallArtifact {
   bullets   String? // JSON: string[]
   nextSteps String? // JSON: string[]
 
-  fetchedAt DateTime?
-  error     String?
+  fetchedAt         DateTime?
+  error             String?
   // Set by the retention policy; a sweep deletes content past this date.
   retentionDeleteAt DateTime?
 
@@ -668,9 +668,9 @@ model WebhookEvent {
 // waitUntil, and swept by cron as the safety net. Backoff lives in
 // `runAfter`; `dedupeKey` stops the same work being queued twice.
 model JobQueue {
-  id      String  @id @default(cuid())
-  kind    String
-  payload String  @default("{}")
+  id        String  @id @default(cuid())
+  kind      String
+  payload   String  @default("{}")
   dedupeKey String? @unique
 
   status      String    @default("queued") // queued | running | done | failed | dead
@@ -719,4 +719,67 @@ model IntegrationState {
   key       String   @id
   value     String   @default("{}")
   updatedAt DateTime @updatedAt
+}
+
+// ---------------- Reminders ----------------
+//
+// Plain-language nudges that reach the phone through the same Discord
+// webhook as the budget alerts (src/lib/notify.ts). A daily cron
+// (/api/cron/send-reminders, 08:00 UTC via vercel.json) sweeps
+// everything due on or before today and pushes it.
+//
+// Because the sweep is daily, `dueAt` is treated as a *calendar date*:
+// the time-of-day component is stored but only used for display and
+// ordering, never for gating delivery.
+//
+// Repeating reminders are not rows-per-occurrence. When one fires, the
+// cron stamps `lastFiredAt` and rolls `dueAt` forward to the next
+// occurrence, so a repeating reminder is always exactly one row holding
+// its *next* due date. One-off reminders are marked `done` instead.
+model Reminder {
+  id     String  @id @default(cuid())
+  title  String
+  detail String?
+
+  dueAt DateTime
+
+  /// none | daily | weekly | monthly — see REPEATS in src/lib/reminders.ts
+  repeat String @default("none")
+
+  /// scheduled | done | cancelled. Past-due-but-unfired stays `scheduled`.
+  status String @default("scheduled")
+
+  /// low | normal | urgent — drives the Discord colour + @everyone ping.
+  priority String @default("normal")
+
+  /// Free-text grouping ("Suppliers", "Ads"…). Null = uncategorised.
+  category String?
+
+  /// Set the moment a push is delivered; also the "has fired" marker.
+  lastFiredAt DateTime?
+  /// How many times this reminder has pushed (repeat reminders climb).
+  fireCount   Int       @default(0)
+
+  createdBy String   @default("you") // you | claude
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events ReminderEvent[]
+
+  @@index([status, dueAt])
+  @@index([dueAt])
+}
+
+// One row per delivery attempt — the audit trail behind "History".
+model ReminderEvent {
+  id         String   @id @default(cuid())
+  reminderId String
+  reminder   Reminder @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+  kind       String // fired | test | snoozed | completed | cancelled
+  channel    String   @default("discord") // discord | none
+  delivered  Boolean  @default(false)
+  detail     String? // error text when delivery failed
+  createdAt  DateTime @default(now())
+
+  @@index([reminderId, createdAt])
 }

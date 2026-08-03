@@ -14,6 +14,14 @@
     {
       "path": "/api/cron/supplier-follow-ups",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/send-reminders",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/sync-leads",
+      "schedule": "15 8 * * *"
     }
   ]
 }

@@ -26,6 +26,10 @@ const envSchema = z.object({
   DISCORD_BOT_TOKEN: z.string().optional(),
   DISCORD_WEBHOOK_URL: z.string().optional(),
   DISCORD_FOLLOWUPS_WEBHOOK_URL: z.string().optional(),
+  // Dedicated channel for the Reminders surface (#reminders). Unset →
+  // reminders fall back to DISCORD_WEBHOOK_URL so they still reach the
+  // phone rather than silently going nowhere.
+  DISCORD_REMINDERS_WEBHOOK_URL: z.string().optional(),
   DISCORD_GUILD_ID: z.string().optional(),
   DISCORD_CHANNEL_IDS: z.string().optional(), // comma-separated
   GOOGLE_CLIENT_ID: z.string().optional(),

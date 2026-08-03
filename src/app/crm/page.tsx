@@ -1,46 +1,36 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { ALL_STAGE_IDS } from "@/lib/domain";
-import { toRecordDTO, toTeamProfileDTO } from "@/lib/serialize";
-import { CrmWorkspace } from "@/components/crm/CrmWorkspace";
 
-export const metadata: Metadata = { title: "CRM" };
 export const dynamic = "force-dynamic";
 
-export default async function CrmPage({
+/**
+ * /crm is retired — suppliers live in /supplier-outreach and buyers in
+ * /leads. This route stays as a redirect because links to it are spread
+ * across the dashboard, approvals, the cockpit, and the attention feed.
+ *
+ * When the URL names a record we look up its type and send the user to
+ * the right surface, so an old `/crm?record=<id>` link still lands on
+ * that exact record instead of dumping them on a list.
+ */
+export default async function LegacyCrmPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    record?: string;
-    supplier?: string;
-    new?: string;
-    stage?: string;
-  }>;
+  searchParams: Promise<{ record?: string; supplier?: string; new?: string }>;
 }) {
   const sp = await searchParams;
-  const [records, profiles] = await Promise.all([
-    prisma.crmRecord.findMany({
-      include: { interactions: true, supplierOwner: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.teamMember.findMany({
-      where: { active: true },
-      orderBy: { sortOrder: "asc" },
-    }),
-  ]);
+  const recordId = sp.record ?? sp.supplier;
 
-  // Only honour a stage the ladder actually knows about — the param is
-  // user-editable and feeds a filter, not a query.
-  const initialStage =
-    sp.stage && ALL_STAGE_IDS.includes(sp.stage) ? sp.stage : undefined;
+  if (recordId) {
+    const record = await prisma.crmRecord.findUnique({
+      where: { id: recordId },
+      select: { type: true },
+    });
+    if (record?.type === "lead") redirect(`/leads?record=${recordId}`);
+    if (record) redirect(`/supplier-outreach/${recordId}`);
+  }
 
-  return (
-    <CrmWorkspace
-      initial={records.map(toRecordDTO)}
-      profiles={profiles.map(toTeamProfileDTO)}
-      initialRecordId={sp.record ?? sp.supplier}
-      initialCreate={sp.new === "1"}
-      initialStage={initialStage}
-    />
-  );
+  // `?new=1` came from the "add a supplier" quick action.
+  if (sp.new === "1") redirect("/supplier-outreach/new");
+
+  redirect("/supplier-outreach");
 }

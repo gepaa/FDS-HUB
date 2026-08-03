@@ -1,4 +1,5 @@
 import {
+  BellRing,
   BookOpen,
   Bot,
   CalendarDays,
@@ -51,11 +52,11 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Every batch of work we knock down, plotted day by day.",
   },
   {
-    href: "/crm",
-    label: "Supplier CRM",
+    href: "/leads",
+    label: "Leads CRM",
     icon: Users,
     section: "hq",
-    description: "Team supplier outreach, follow-ups, and the shared closed book.",
+    description: "Customers and buyers — synced from Shopify, worked to a sale.",
   },
   {
     href: "/supplier-outreach",
@@ -63,6 +64,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: FileSpreadsheet,
     section: "hq",
     description: "Spreadsheet-style supplier calling lists for Ben, Bennett, and Pablo.",
+  },
+  {
+    href: "/reminders",
+    label: "Reminders",
+    icon: BellRing,
+    section: "hq",
+    description: "Scheduled nudges pushed to your phone through Discord.",
   },
   {
     href: "/passwords",
